@@ -148,6 +148,14 @@
         .mkm-copy-btn:hover{background:#2e7d32;transform:translateY(-1px);}
         .mkm-copy-btn.copied{background:#00796b;cursor:default;}
 
+        .mkm-retry-btn{
+            display:inline-flex;align-items:center;gap:6px;
+            margin-top:10px;padding:7px 16px;background:#e53935;color:#fff;
+            border:none;border-radius:8px;font-size:12px;font-weight:700;
+            cursor:pointer;transition:background .2s;letter-spacing:.3px;
+        }
+        .mkm-retry-btn:hover{background:#b71c1c;}
+
         .mkm-timer{
             display:inline-block;font-size:22px;font-weight:800;
             font-family:'Courier New',monospace;color:#e65100;
@@ -202,13 +210,12 @@
     let busy = false;
     const visitorId = getVisitorId();
 
-    btn.addEventListener("click", async () => {
-        if (busy) return;
+    async function runClaim() {
         busy = true;
         btn.disabled = true;
 
         // ── 1. Ghi started_at vào Firestore ──
-        showPopup("⏳ Đang khởi tạo...", "mkm-loading");
+        showPopup("⏳ Đang kết nối...", "mkm-loading");
         const startedAt = Timestamp.now();
         let claimRef = null;
 
@@ -221,10 +228,23 @@
                 duration_sec: null,
                 code:         null,
             });
+            console.log("[MKM] ✅ Ghi started_at thành công, docId:", claimRef.id);
         } catch (e) {
-            showPopup("❌ Không kết nối được Firebase.<br><small>Vui lòng kiểm tra lại cấu hình.</small>", "mkm-error");
-            btn.disabled = false;
+            console.error("[MKM] ❌ Lỗi ghi started_at:", e);
+            showPopup(`
+                ❌ <strong>Không kết nối được Firebase.</strong><br>
+                <small style="opacity:.8">${e.message || "Kiểm tra lại cấu hình hoặc Rules."}</small>
+                <div style="text-align:center">
+                    <button class="mkm-retry-btn" id="mkm-retry-btn">🔄 Thử lại</button>
+                </div>
+            `, "mkm-error");
+            document.getElementById("mkm-retry-btn")?.addEventListener("click", () => {
+                busy = false;
+                btn.disabled = false;
+                runClaim();
+            });
             busy = false;
+            btn.disabled = false;
             return;
         }
 
@@ -242,7 +262,9 @@
             const iv = setInterval(() => { rem--; if (rem <= 0) { clearInterval(iv); resolve(); } else render(rem); }, 1000);
         });
 
-        // ── 3. Tạo mã + ghi claimed_at ──
+        // ── 3. Lưu mã vào Firestore TRƯỚC, sau đó mới hiện ──
+        showPopup("⏳ Đang lưu mã...", "mkm-loading");
+
         const code      = generateCode(CONFIG.codeLength);
         const claimedAt = Timestamp.now();
         const durSec    = Math.round((claimedAt.toMillis() - startedAt.toMillis()) / 1000);
@@ -253,11 +275,27 @@
                 duration_sec: durSec,
                 code:         code,
             });
+            console.log("[MKM] ✅ Lưu mã thành công:", code);
         } catch (e) {
-            console.warn("[MKM] Không cập nhật được claimed_at:", e);
+            console.error("[MKM] ❌ Lỗi lưu mã:", e);
+            showPopup(`
+                ❌ <strong>Lưu mã thất bại.</strong><br>
+                <small style="opacity:.8">${e.message || "Vui lòng thử lại."}</small>
+                <div style="text-align:center">
+                    <button class="mkm-retry-btn" id="mkm-retry-btn">🔄 Thử lại</button>
+                </div>
+            `, "mkm-error");
+            document.getElementById("mkm-retry-btn")?.addEventListener("click", () => {
+                busy = false;
+                btn.disabled = false;
+                runClaim();
+            });
+            busy = false;
+            btn.disabled = false;
+            return; // ← KHÔNG hiện mã nếu lưu thất bại
         }
 
-        // ── 4. Hiện mã ──
+        // ── 4. Lưu thành công → mới hiện mã ──
         showPopup(`
             🎉 <strong>Mã khuyến mãi của bạn:</strong>
             <span class="mkm-code-box" id="mkm-code-val">${code}</span>
@@ -274,6 +312,11 @@
         document.getElementById("mkm-copy-btn")?.addEventListener("click", () => {
             copyText(code, document.getElementById("mkm-copy-btn"));
         });
+    }
+
+    btn.addEventListener("click", () => {
+        if (busy) return;
+        runClaim();
     });
 
 })();
