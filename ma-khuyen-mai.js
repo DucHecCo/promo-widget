@@ -3,11 +3,11 @@
  * MÃ KHUYẾN MÃI WIDGET — Multi-step + Browse Detection
  *
  * LUỒNG:
- *  1step_*  → chỉ đếm ngược, trả mã
- *  2step_*  → bước 1: browse trang khác + chờ đủ giây
- *              bước 2: đếm ngược → trả mã
- *  3step_*  → bước 1: browse + chờ
- *              bước 2,3: đếm ngược → trả mã
+ *  1step_*  → đếm ngược → trả mã
+ *  2step_*  → Trang A: đếm ngược bước 1 → hiện "sang trang khác"
+ *              Trang B: đếm ngược bước 2 → trả mã
+ *  3step_*  → Trang A: đếm ngược bước 1 → hiện "sang trang khác"
+ *              Trang B: đếm ngược bước 2 → đếm ngược bước 3 → trả mã
  *
  * Firestore "claims":
  *   visitor_id, domain, plan, max_steps, countdown_times
@@ -44,22 +44,23 @@
     };
 
     const DEFAULT_PLAN    = '1step_60';
-    const CLAIM_STORE_KEY = '_mkm_claim'; // localStorage key
+    const CLAIM_STORE_KEY = '_mkm_claim';
 
     const CFG = {
-        btnLabel:         '🎁 Lấy mã khuyến mãi',
-        btnColor:         '#e53935',
-        btnHoverColor:    '#b71c1c',
-        codeLength:       8,
-        col:              'claims',
-        configCol:        'configs',
+        btnLabel:   '🎁 Lấy mã khuyến mãi',
+        btnColor:   '#e53935',
+        btnHoverColor: '#b71c1c',
+        codeLength: 8,
+        col:        'claims',
+        configCol:  'configs',
     };
 
     // ── Load Firebase ────────────────────────────────────────────
     let db, FS;
     try {
-        const { initializeApp }                                           = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-        const { getFirestore, collection, addDoc, updateDoc, doc, getDoc, Timestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+        const { getFirestore, collection, addDoc, updateDoc, doc, getDoc, Timestamp } =
+            await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
         db = getFirestore(initializeApp(FIREBASE_CONFIG));
         FS = { collection, addDoc, updateDoc, doc, getDoc, Timestamp };
     } catch (e) { console.error('[MKM] Firebase load fail:', e); return; }
@@ -82,7 +83,10 @@
     // ── Helpers ──────────────────────────────────────────────────
     function getVisitorId() {
         let v = localStorage.getItem('_mkm_vid');
-        if (!v) { v = 'v_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); localStorage.setItem('_mkm_vid', v); }
+        if (!v) {
+            v = 'v_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+            localStorage.setItem('_mkm_vid', v);
+        }
         return v;
     }
     function genCode(n) {
@@ -92,11 +96,11 @@
     }
     function fmtTime(ts) {
         return (ts && ts.toDate ? ts.toDate() : new Date(ts))
-            .toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+            .toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
     function fmtMs(ms) {
         const s = Math.round(ms / 1000);
-        return s >= 60 ? `${Math.floor(s/60)}p ${s%60}s` : `${s}s`;
+        return s >= 60 ? `${Math.floor(s / 60)}p ${s % 60}s` : `${s}s`;
     }
     const saveState  = v  => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify(v));
     const loadState  = () => { try { return JSON.parse(localStorage.getItem(CLAIM_STORE_KEY)); } catch { return null; } };
@@ -139,11 +143,6 @@
             background:rgba(171,71,188,.15);color:#7b1fa2;
             border:1px solid rgba(171,71,188,.35);border-radius:20px;padding:2px 10px;margin-bottom:6px;
         }
-        .mkm-browse-icon{font-size:28px;display:block;margin-bottom:6px;}
-        .mkm-browse-hint{
-            display:inline-block;margin-top:8px;padding:6px 14px;
-            background:rgba(171,71,188,.12);border-radius:8px;font-size:12px;font-weight:600;
-        }
         .mkm-timer{
             display:inline-block;font-size:22px;font-weight:800;font-family:'Courier New',monospace;
             color:#e65100;background:rgba(255,152,0,.15);padding:2px 10px;
@@ -151,6 +150,12 @@
         }
         .mkm-progress{height:6px;background:rgba(0,0,0,.1);border-radius:4px;margin-top:10px;overflow:hidden;}
         .mkm-progress-bar{height:100%;background:linear-gradient(90deg,#ffb300,#ff6f00);border-radius:4px;transition:width .85s linear;}
+        .mkm-navigate-box{
+            margin-top:12px;padding:12px 16px;
+            background:rgba(171,71,188,.1);border:1.5px dashed #ab47bc;border-radius:10px;
+            font-size:13px;font-weight:600;color:#4a148c;text-align:center;line-height:1.7;
+        }
+        .mkm-navigate-box .mkm-nav-icon{font-size:26px;display:block;margin-bottom:4px;}
         .mkm-code-box{
             display:block;margin:10px 0 4px;padding:10px 20px;
             background:linear-gradient(135deg,#d4edda,#b2dfdb);border:2px dashed #43a047;border-radius:10px;
@@ -187,7 +192,7 @@
     popup.id = 'mkm-popup'; popup.className = 'mkm-hidden';
     document.body.appendChild(popup);
 
-    const btn = document.getElementById('mkm-btn');
+    const btn  = document.getElementById('mkm-btn');
     const show = (html, cls) => { popup.className = cls; popup.innerHTML = html; };
 
     function copyText(text, el) {
@@ -196,14 +201,16 @@
             setTimeout(() => { el.classList.remove('copied'); el.textContent = '📋 Sao chép mã'; }, 2500);
         };
         navigator.clipboard?.writeText(text).then(done).catch(() => {
-            const ta = Object.assign(document.createElement('textarea'), { value: text, style: 'position:fixed;opacity:0' });
+            const ta = Object.assign(document.createElement('textarea'),
+                { value: text, style: 'position:fixed;opacity:0' });
             document.body.appendChild(ta); ta.select();
-            try { document.execCommand('copy'); done(); } catch(_){}
+            try { document.execCommand('copy'); done(); } catch (_) {}
             document.body.removeChild(ta);
         });
     }
 
-    // ── Đếm ngược 1 bước (đơn giản) ─────────────────────────────
+    // ── Đếm ngược 1 bước ────────────────────────────────────────
+    // stepIdx: 0-based index, totalSteps: tổng số bước của plan
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
             let rem = seconds;
@@ -216,25 +223,22 @@
                     'mkm-countdown');
             };
             render(rem);
-            const iv = setInterval(() => { rem--; if (rem <= 0) { clearInterval(iv); resolve(); } else render(rem); }, 1000);
+            const iv = setInterval(() => {
+                rem--;
+                if (rem <= 0) { clearInterval(iv); resolve(); } else render(rem);
+            }, 1000);
         });
     }
 
-    // ── Hiện hướng dẫn browse (bước 1 của multi-step) ───────────
-    function showBrowseUI(totalSeconds, elapsedMs, totalSteps, navigated) {
-        const remSec = Math.max(0, Math.ceil((totalSeconds * 1000 - elapsedMs) / 1000));
-        const pct    = Math.round(Math.min(100, (elapsedMs / (totalSeconds * 1000)) * 100));
-        const navMsg = navigated
-            ? `<div class="mkm-browse-hint">✅ Đã truy cập trang mới · Đang đợi đủ thời gian...</div>`
-            : `<div class="mkm-browse-hint">👆 Hãy click vào bất kỳ liên kết nào trên trang</div>`;
+    // ── Hiện thông báo "hãy sang trang khác" (sau bước 1 trên trang A) ──
+    function showNavigatePrompt(totalSteps) {
         show(`
-            <div class="mkm-step-badge">Bước 1 / ${totalSteps}</div>
-            <span class="mkm-browse-icon">🔍</span>
-            <strong>Yêu cầu truy cập trang</strong><br>
-            Vui lòng truy cập <strong>bất kỳ trang nào</strong> trên website này để tiếp tục nhận mã.
-            ${navMsg}
-            <div style="margin-top:8px">Còn <span class="mkm-timer">${remSec}s</span></div>
-            <div class="mkm-progress"><div class="mkm-progress-bar" style="width:${pct}%"></div></div>
+            <div class="mkm-step-badge">Bước 1 / ${totalSteps} hoàn thành ✅</div>
+            <div class="mkm-navigate-box">
+                <span class="mkm-nav-icon">🔗</span>
+                <strong>Hãy truy cập một trang khác</strong> trên website này để tiếp tục nhận mã khuyến mãi.
+                <br><span style="font-size:12px;opacity:.7">Click vào bất kỳ liên kết nào trên trang.</span>
+            </div>
         `, 'mkm-browse');
     }
 
@@ -243,14 +247,12 @@
         show('⏳ Đang lưu mã...', 'mkm-loading');
         const code      = genCode(CFG.codeLength);
         const claimedAt = Timestamp.now();
-        const startedMs = state.step_starts[0];
-        const durSec    = Math.round((claimedAt.toMillis() - startedMs) / 1000);
+        const durSec    = Math.round((claimedAt.toMillis() - state.step_starts[0]) / 1000);
 
-        // Build step timing rows for display
         const stepRows = stepTimestamps.map((ts, i) => {
             const nextTs = stepTimestamps[i + 1] || claimedAt.toMillis();
-            const diff = fmtMs(nextTs - ts);
-            return `<tr><td>Bước ${i+1}:</td><td>${fmtTime(ts)} <span style="opacity:.6">(${diff})</span></td></tr>`;
+            const diff   = fmtMs(nextTs - ts);
+            return `<tr><td>Bước ${i + 1}:</td><td>${fmtTime(ts)} <span style="opacity:.6">(${diff})</span></td></tr>`;
         }).join('');
 
         try {
@@ -265,9 +267,11 @@
         } catch (e) {
             console.error('[MKM] ❌ Lưu mã thất bại:', e);
             show(`❌ <strong>Lưu mã thất bại.</strong><br><small>${e.message}</small>
-                <div style="text-align:center"><button class="mkm-retry-btn" id="mkm-retry-btn">🔄 Thử lại</button></div>`,
-                'mkm-error');
-            document.getElementById('mkm-retry-btn')?.addEventListener('click', () => finalizeAndShow(state, stepTimestamps));
+                <div style="text-align:center">
+                    <button class="mkm-retry-btn" id="mkm-retry-btn">🔄 Thử lại</button>
+                </div>`, 'mkm-error');
+            document.getElementById('mkm-retry-btn')
+                ?.addEventListener('click', () => finalizeAndShow(state, stepTimestamps));
             return;
         }
 
@@ -277,7 +281,7 @@
             <span class="mkm-code-box">${code}</span>
             <div class="mkm-meta">
                 <table>
-                    <tr><td>🕐 Bắt đầu:</td><td>${fmtTime(startedMs)}</td></tr>
+                    <tr><td>🕐 Bắt đầu:</td><td>${fmtTime(state.step_starts[0])}</td></tr>
                     ${stepRows}
                     <tr><td>🕑 Nhận mã:</td><td>${fmtTime(claimedAt.toMillis())}</td></tr>
                     <tr><td>⏱ Tổng thời gian:</td><td>${durSec} giây</td></tr>
@@ -287,17 +291,18 @@
                 <button class="mkm-copy-btn" id="mkm-copy-btn">📋 Sao chép mã</button>
             </div>
         `, 'mkm-success');
-        document.getElementById('mkm-copy-btn')?.addEventListener('click', () => {
-            copyText(code, document.getElementById('mkm-copy-btn'));
-        });
+        document.getElementById('mkm-copy-btn')
+            ?.addEventListener('click', () => copyText(code, document.getElementById('mkm-copy-btn')));
     }
 
-    // ── LUỒNG 1: 1step — chỉ đếm ngược ─────────────────────────
+    // ════════════════════════════════════════════════════════════
+    // LUỒNG 1: 1step — đếm ngược → trả mã
+    // ════════════════════════════════════════════════════════════
     async function runSimpleFlow() {
         busy = true; btn.disabled = true;
         show('⏳ Đang kết nối...', 'mkm-loading');
 
-        const startedAt = Timestamp.now();
+        const startedAt      = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis()];
         let claimRef;
 
@@ -306,7 +311,7 @@
                 visitor_id:      visitorId,
                 domain:          window.location.origin,
                 plan:            activePlan,
-                max_steps:       activeStepCfg.max_steps,
+                max_steps:       1,
                 countdown_times: activeStepCfg.countdown_times,
                 started_at:      startedAt,
                 step_timestamps: stepTimestamps,
@@ -315,11 +320,16 @@
             });
         } catch (e) {
             show(`❌ <strong>Không kết nối được Firebase.</strong><br><small>${e.message}</small>
-                <div style="text-align:center"><button class="mkm-retry-btn" id="r">🔄 Thử lại</button></div>`, 'mkm-error');
-            document.getElementById('r')?.addEventListener('click', () => { busy=false; btn.disabled=false; runSimpleFlow(); });
-            busy=false; btn.disabled=false; return;
+                <div style="text-align:center">
+                    <button class="mkm-retry-btn" id="r">🔄 Thử lại</button>
+                </div>`, 'mkm-error');
+            document.getElementById('r')?.addEventListener('click', () => {
+                busy = false; btn.disabled = false; runSimpleFlow();
+            });
+            busy = false; btn.disabled = false; return;
         }
 
+        // Đếm ngược bước duy nhất
         await countdown(0, 1, activeStepCfg.countdown_times[0]);
 
         await finalizeAndShow(
@@ -328,8 +338,11 @@
         );
     }
 
-    // ── LUỒNG 2: multi-step — bước 1 yêu cầu browse ─────────────
-    async function startBrowseFlow() {
+    // ════════════════════════════════════════════════════════════
+    // LUỒNG 2: multi-step — Trang A
+    //   addDoc → đếm ngược bước 1 → lưu localStorage → hiện "sang trang khác"
+    // ════════════════════════════════════════════════════════════
+    async function startMultiStepFlowOnPageA() {
         busy = true; btn.disabled = true;
         show('⏳ Đang kết nối...', 'mkm-loading');
 
@@ -351,129 +364,124 @@
             console.log('[MKM] ✅ Doc tạo OK:', claimRef.id);
         } catch (e) {
             show(`❌ <strong>Không kết nối được Firebase.</strong><br><small>${e.message}</small>
-                <div style="text-align:center"><button class="mkm-retry-btn" id="r">🔄 Thử lại</button></div>`, 'mkm-error');
-            document.getElementById('r')?.addEventListener('click', () => { busy=false; btn.disabled=false; startBrowseFlow(); });
-            busy=false; btn.disabled=false; return;
+                <div style="text-align:center">
+                    <button class="mkm-retry-btn" id="r">🔄 Thử lại</button>
+                </div>`, 'mkm-error');
+            document.getElementById('r')?.addEventListener('click', () => {
+                busy = false; btn.disabled = false; startMultiStepFlowOnPageA();
+            });
+            busy = false; btn.disabled = false; return;
         }
 
-        // Lưu state vào localStorage
+        // ── Bước 1: đếm ngược ngay trên trang A ─────────────────
+        await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
+
+        // ── Bước 1 xong → lưu state vào localStorage ────────────
+        // step1_done_at lưu lại để trang B biết đã hoàn thành bước 1
+        const step1DoneAt = Date.now();
         saveState({
-            docId:          claimRef.id,
-            plan:           activePlan,
-            max_steps:      activeStepCfg.max_steps,
+            docId:           claimRef.id,
+            plan:            activePlan,
+            max_steps:       activeStepCfg.max_steps,
             countdown_times: activeStepCfg.countdown_times,
-            step_starts:    [startedAt.toMillis()],
-            origin_url:     location.href,
+            step_starts:     [startedAt.toMillis(), step1DoneAt],  // [step0_start, step1_done]
             hostname,
             visitorId,
         });
 
-        // Hiện hướng dẫn browse với countdown
-        showBrowseWithLiveCountdown(activeStepCfg.countdown_times[0], activeStepCfg.max_steps, false);
+        // ── Hiện thông báo yêu cầu navigate sang trang khác ─────
+        showNavigatePrompt(activeStepCfg.max_steps);
     }
 
-    // Countdown hiển thị trên trang gốc (chỉ visual, chờ user navigate)
-    function showBrowseWithLiveCountdown(totalSec, totalSteps, navigated) {
-        let elapsed = 0;
-        showBrowseUI(totalSec, 0, totalSteps, navigated);
-        const iv = setInterval(() => {
-            elapsed += 1000;
-            showBrowseUI(totalSec, elapsed, totalSteps, navigated);
-            if (elapsed >= totalSec * 1000) clearInterval(iv);
-        }, 1000);
-    }
-
-    // ── RESUME: tiếp tục khi user quay lại trang khác ────────────
+    // ════════════════════════════════════════════════════════════
+    // LUỒNG 3: RESUME — chạy khi trang B load
+    //   Kiểm tra state → updateDoc step1 → chạy các bước còn lại → trả mã
+    // ════════════════════════════════════════════════════════════
     async function handleResume(state) {
         busy = true; btn.style.display = 'none';
 
-        const elapsed     = Date.now() - state.step_starts[0];
-        const required    = state.countdown_times[0] * 1000;
-        const visitedNew  = (location.href !== state.origin_url);
-        const stepTimestamps = [...state.step_starts];
+        console.log('[MKM] Resume state:', state);
 
-        console.log(`[MKM] Resume | navigated: ${visitedNew} | elapsed: ${Math.round(elapsed/1000)}s / ${state.countdown_times[0]}s`);
+        // step_starts[0] = thời điểm bắt đầu toàn bộ flow (trang A click)
+        // step_starts[1] = thời điểm bước 1 hoàn thành trên trang A
+        const step0Start  = state.step_starts[0];
+        const step1Done   = state.step_starts[1]; // timestamp bước 1 kết thúc
+        const stepTimestamps = [step0Start, step1Done];
 
-        if (!visitedNew) {
-            // Vẫn trên trang gốc → chỉ hiện lại hướng dẫn
-            showBrowseWithLiveCountdown(
-                Math.max(0, Math.ceil((required - elapsed) / 1000)),
-                state.max_steps, false
-            );
-            return;
-        }
-
-        // Đã navigate sang trang mới ✅
-        // Cần chờ đủ thời gian step 1 không?
-        const remaining = required - elapsed;
-        if (remaining > 0) {
-            // Còn thiếu thời gian → đếm ngược nốt
-            showBrowseUI(state.countdown_times[0], elapsed, state.max_steps, true);
-            await new Promise(resolve => {
-                let rem = Math.ceil(remaining / 1000);
-                const iv = setInterval(() => {
-                    rem--;
-                    showBrowseUI(state.countdown_times[0], state.countdown_times[0]*1000 - rem*1000, state.max_steps, true);
-                    if (rem <= 0) { clearInterval(iv); resolve(); }
-                }, 1000);
-            });
-        }
-
-        // Bước 1 hoàn thành → ghi Firestore
-        const step1Done = Timestamp.now();
-        stepTimestamps.push(step1Done.toMillis());
-
+        // Ghi Firestore: step 1 hoàn thành
+        show('⏳ Đang xác nhận bước 1...', 'mkm-loading');
         try {
             await updateDoc(doc(db, CFG.col, state.docId), {
-                steps_completed: 1,
-                step_timestamps: stepTimestamps,
-                step1_completed_at: step1Done,
+                steps_completed:    1,
+                step_timestamps:    stepTimestamps,
+                step1_completed_at: Timestamp.fromMillis(step1Done),
             });
-            console.log('[MKM] ✅ Step 1 hoàn thành');
-        } catch (e) { console.warn('[MKM] Không update step1:', e.message); }
+            console.log('[MKM] ✅ Step 1 đã ghi Firestore');
+        } catch (e) {
+            console.warn('[MKM] Không update step1:', e.message);
+        }
 
-        // Cập nhật localStorage
-        state.step_starts = stepTimestamps;
-        saveState(state);
+        // Cập nhật state
+        saveState({ ...state, step_starts: stepTimestamps });
 
-        // Chạy các bước countdown còn lại (bước 2, 3)
+        // ── Chạy các bước countdown còn lại (bước 2, 3, ...) ────
+        // Với 2step: chỉ có countdown_times[1]
+        // Với 3step: có countdown_times[1] và countdown_times[2]
         for (let i = 1; i < state.max_steps; i++) {
             await countdown(i, state.max_steps, state.countdown_times[i]);
 
-            // Ghi timestamp từng bước vào Firestore
-            const stepDone = Timestamp.now();
-            stepTimestamps.push(stepDone.toMillis());
+            const stepDoneAt = Date.now();
+            stepTimestamps.push(stepDoneAt);
+
             try {
                 await updateDoc(doc(db, CFG.col, state.docId), {
-                    steps_completed: i + 1,
-                    step_timestamps: stepTimestamps,
-                    [`step${i+1}_completed_at`]: stepDone,
+                    steps_completed:              i + 1,
+                    step_timestamps:              stepTimestamps,
+                    [`step${i + 1}_completed_at`]: Timestamp.fromMillis(stepDoneAt),
                 });
-            } catch (e) { console.warn(`[MKM] Không update step${i+1}:`, e.message); }
+                console.log(`[MKM] ✅ Step ${i + 1} ghi OK`);
+            } catch (e) {
+                console.warn(`[MKM] Không update step${i + 1}:`, e.message);
+            }
         }
 
-        // Lưu mã
+        // ── Tất cả bước xong → trả mã ────────────────────────────
         await finalizeAndShow(
-            { docId: state.docId, max_steps: state.max_steps, step_starts: [state.step_starts[0]] },
+            { docId: state.docId, max_steps: state.max_steps, step_starts: [step0Start] },
             stepTimestamps
         );
     }
 
-    // ── MAIN ─────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    // MAIN
+    // ════════════════════════════════════════════════════════════
     let busy = false;
     const visitorId = getVisitorId();
 
     // Kiểm tra pending claim khi trang load
     const pending = loadState();
-    if (pending && pending.hostname === hostname && pending.visitorId === getVisitorId()) {
-        // Có claim đang dở → resume
+    if (pending
+        && pending.hostname    === hostname
+        && pending.visitorId   === visitorId
+        && pending.step_starts && pending.step_starts[1]   // bước 1 đã xong trên trang A
+        && location.href       !== pending.origin_url       // đang ở trang khác (trang B)
+    ) {
         handleResume(pending);
+    } else if (pending
+        && pending.hostname  === hostname
+        && pending.visitorId === visitorId
+        && pending.step_starts && pending.step_starts[1]   // bước 1 đã xong
+        && location.href     === pending.origin_url        // vẫn đang ở trang A
+    ) {
+        // Vẫn ở trang A sau khi bước 1 xong → hiện lại thông báo navigate
+        busy = true; btn.disabled = true;
+        showNavigatePrompt(pending.max_steps);
     }
 
     btn.addEventListener('click', () => {
         if (busy) return;
         if (activeStepCfg.max_steps === 1) runSimpleFlow();
-        else startBrowseFlow();
+        else startMultiStepFlowOnPageA();
     });
 
 })();
