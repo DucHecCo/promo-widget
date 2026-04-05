@@ -259,17 +259,19 @@
         show('⏳ Đang lưu mã...', 'mkm-loading');
         const code      = genCode(CFG.codeLength);
         const claimedAt = Timestamp.now();
-        const startedMs = state.step_starts[0];
+        const startedMs = stepTimestamps[0];
         const durSec    = Math.round((claimedAt.toMillis() - startedMs) / 1000);
 
-        // stepTimestamps = [start, step1Done, step2Done(=claimed)]
-        // Chỉ hiện các mốc giữa (bỏ index 0=start, bỏ index cuối=claimed)
-        const midSteps = stepTimestamps.slice(1, -1); // [] với 1step, [step1Done] với 2step
-        const stepRows = midSteps.map((ts, i) => {
-            const nextTs = stepTimestamps[i + 2] || claimedAt.toMillis();
-            const diff   = fmtMs(nextTs - ts);
-            return `<tr><td>Bước ${i + 1} xong:</td><td>${fmtTime(ts)} <span style="opacity:.6">(+${diff})</span></td></tr>`;
-        }).join('');
+        // stepTimestamps layout:
+        //   1step: [start]
+        //   2step: [start, step1Done]  → step1Done = thời điểm xong đếm bước 1
+        // Với 2step, hiện thêm dòng "Xong bước 1" ở giữa
+        let stepRows = '';
+        if (stepTimestamps.length >= 2) {
+            const step1Done = stepTimestamps[1];
+            const waitSec   = fmtMs(claimedAt.toMillis() - step1Done);
+            stepRows = `<tr><td>⏩ Xong bước 1:</td><td>${fmtTime(step1Done)}</td></tr>`;
+        }
 
         try {
             await updateDoc(doc(db, CFG.col, state.docId), {
@@ -423,45 +425,51 @@
 
     // ── Hiện UI chờ "sang trang khác" + nút Tiếp tục ─────────────
     function showWaitNextPage(state) {
-        const totalSteps  = state.max_steps;
-        const originPath  = state.origin_path || '/';
-        const visitedNew  = (location.pathname !== originPath);
+        const totalSteps = state.max_steps;
+        const originPath = state.origin_path || location.pathname;
 
-        if (visitedNew) {
-            // Đã ở trang khác → cho phép nhấn Tiếp tục ngay
+        function renderWait(unlocked) {
             show(`
                 <div class="mkm-step-badge">Bước 1 / ${totalSteps} ✅ hoàn thành</div>
                 <ul class="mkm-checklist">
                     <li class="done">✅ Bước 1: Đã hoàn thành</li>
-                    <li class="done">✅ Đã truy cập trang mới</li>
+                    <li class="${unlocked ? 'done' : 'pending'}">
+                        ${unlocked ? '✅ Đã truy cập trang mới' : '⏳ Cần truy cập trang khác (cùng tên miền, khác đường dẫn)'}
+                    </li>
                 </ul>
-                <div style="margin-top:10px;font-size:13px;color:#2e7d32">
-                    🎯 Nhấn <strong>"Tiếp tục"</strong> để nhận mã khuyến mãi!
+                <div style="margin-top:8px;font-size:12px;color:#6a1b9a;background:rgba(106,27,154,.08);padding:6px 10px;border-radius:8px">
+                    📌 Trang hiện tại: <code style="font-size:11px">${originPath}</code>
                 </div>
-                <button class="mkm-next-btn" id="mkm-next-btn">▶ Tiếp tục nhận mã</button>
+                ${unlocked
+                    ? `<div style="margin-top:8px;font-size:13px;color:#2e7d32">🎯 Nhấn <strong>"Tiếp tục"</strong> để nhận mã!</div>
+                       <button class="mkm-next-btn" id="mkm-next-btn">▶ Tiếp tục nhận mã</button>`
+                    : `<button class="mkm-next-btn" id="mkm-next-btn" disabled style="opacity:.45;cursor:not-allowed;margin-top:12px">
+                           🔒 Cần truy cập trang khác trước
+                       </button>`
+                }
             `, 'mkm-wait');
-        } else {
-            // Vẫn trên trang gốc → hiện hướng dẫn, nút bị disabled
-            show(`
-                <div class="mkm-step-badge">Bước 1 / ${totalSteps} ✅ hoàn thành</div>
-                <ul class="mkm-checklist">
-                    <li class="done">✅ Bước 1: Đã hoàn thành</li>
-                    <li class="pending">⏳ Bước 2: Vui lòng truy cập trang khác trước</li>
-                </ul>
-                <div style="margin-top:10px;font-size:13px;color:#6a1b9a">
-                    📌 Vui lòng <strong>truy cập bất kỳ trang nào khác</strong> trên website
-                    (cùng tên miền, khác đường dẫn), sau đó quay lại đây nhấn <strong>"Tiếp tục"</strong>.
-                </div>
-                <button class="mkm-next-btn" id="mkm-next-btn" disabled style="opacity:.5;cursor:not-allowed">
-                    🔒 Cần truy cập trang khác trước
-                </button>
-            `, 'mkm-wait');
+
+            if (unlocked) {
+                document.getElementById('mkm-next-btn')?.addEventListener('click', () => {
+                    if (location.pathname === originPath) return;
+                    runStep2(state);
+                });
+            }
         }
 
-        document.getElementById('mkm-next-btn')?.addEventListener('click', () => {
-            if (location.pathname === originPath) return; // double-check
-            runStep2(state);
-        });
+        // Render ngay lập tức
+        const alreadyNew = (location.pathname !== originPath);
+        renderWait(alreadyNew);
+
+        // Nếu chưa unlock: polling mỗi 800ms để phát hiện navigate
+        if (!alreadyNew) {
+            const pollId = setInterval(() => {
+                if (location.pathname !== originPath) {
+                    clearInterval(pollId);
+                    renderWait(true);
+                }
+            }, 800);
+        }
     }
 
     // ── Chạy bước 2 (+ bước 3 nếu có) sau khi user nhấn nút ─────
