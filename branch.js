@@ -22,7 +22,7 @@
     const CLAIM_STORE_KEY = '_mkm_claim';
 
     const CFG = {
-        btnLabel:   '🎁 Lấy mã khuyến mãi',
+        btnLabel:   'Lấy mã khuyến mãi',
         btnColor:   '#e53935',
         btnHover:   '#b71c1c',
         codeLength: 8,
@@ -86,8 +86,7 @@
             transition:background .2s,transform .15s,box-shadow .2s;
             box-shadow:0 4px 14px rgba(229,57,53,.35);
         }
-        #mkm-btn:hover:not(:disabled){background:${CFG.btnHover};transform:translateY(-2px);}
-        #mkm-btn:disabled{background:#bdbdbd;cursor:not-allowed;box-shadow:none;opacity:.7;}
+        #mkm-btn:hover{background:${CFG.btnHover};transform:translateY(-2px);}
 
         #mkm-panel{
             margin-top:16px;padding:18px 20px;border-radius:14px;font-size:14px;
@@ -108,6 +107,9 @@
         }
         .mkm-progress{height:6px;background:rgba(0,0,0,.1);border-radius:4px;margin-top:10px;overflow:hidden;}
         .mkm-progress-bar{height:100%;background:linear-gradient(90deg,#ffb300,#ff6f00);border-radius:4px;transition:width .85s linear;}
+        .mkm-paused-note{
+            font-size:12px;color:#9e9e9e;margin-top:8px;text-align:center;
+        }
 
         .mkm-code-box{
             display:block;margin:12px 0 6px;padding:12px 20px;
@@ -133,7 +135,6 @@
             box-shadow:0 4px 12px rgba(123,31,162,.25);
         }
         .mkm-next-btn:hover{background:#4a148c;transform:translateY(-1px);}
-        .mkm-next-btn:disabled{background:#bdbdbd;cursor:not-allowed;box-shadow:none;transform:none;}
 
         .mkm-retry-btn{
             display:inline-flex;align-items:center;gap:6px;margin-top:10px;
@@ -143,31 +144,22 @@
         .mkm-retry-btn:hover{background:#b71c1c;}
 
         .mkm-steps{display:flex;gap:6px;margin-bottom:14px;}
-        .mkm-step-dot{
-            flex:1;height:4px;border-radius:4px;background:#e0e0e0;transition:background .4s;
-        }
+        .mkm-step-dot{flex:1;height:4px;border-radius:4px;background:#e0e0e0;transition:background .4s;}
         .mkm-step-dot.active{background:#ffb300;}
         .mkm-step-dot.done{background:#43a047;}
 
-        .mkm-wait-desc{
-            font-size:13px;color:#616161;margin:10px 0 14px;line-height:1.7;
-        }
-        .mkm-wait-hint{
-            display:inline-block;font-size:12px;color:#9e9e9e;
-            background:#f5f5f5;border-radius:6px;padding:4px 10px;margin-bottom:12px;
-        }
+        .mkm-wait-desc{font-size:13px;color:#616161;margin:10px 0 14px;line-height:1.7;}
     </style>`);
 
-    // Widget gắn vào footer hoặc body
     const widget = document.createElement('div');
     widget.id = 'mkm-widget';
     widget.innerHTML = `<button id="mkm-btn">${CFG.btnLabel}</button><div id="mkm-panel"></div>`;
     (document.getElementById('mkm-container') || document.querySelector('footer') || document.body)
         .appendChild(widget);
 
-    const panel  = document.getElementById('mkm-panel');
-    const btn    = document.getElementById('mkm-btn');
-    const show   = (html, cls) => { panel.className = cls; panel.innerHTML = html; };
+    const panel = document.getElementById('mkm-panel');
+    const btn   = document.getElementById('mkm-btn');
+    const show  = (html, cls) => { panel.className = cls; panel.innerHTML = html; };
 
     function stepDots(current, total) {
         if (total < 2) return '';
@@ -178,8 +170,8 @@
 
     function copyText(text, el) {
         const done = () => {
-            el.classList.add('copied'); el.textContent = '✓ Đã sao chép!';
-            setTimeout(() => { el.classList.remove('copied'); el.textContent = '📋 Sao chép mã'; }, 2500);
+            el.classList.add('copied'); el.textContent = 'Đã sao chép!';
+            setTimeout(() => { el.classList.remove('copied'); el.textContent = 'Sao chép mã'; }, 2500);
         };
         navigator.clipboard?.writeText(text).then(done).catch(() => {
             const ta = Object.assign(document.createElement('textarea'),
@@ -190,28 +182,59 @@
         });
     }
 
+    // Đếm ngược — dừng khi tab ẩn, tiếp tục khi tab hiện
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
             let rem = seconds;
+            let paused = document.hidden;
+            let ivId = null;
+
             const dots = stepDots(stepIdx, totalSteps);
-            const render = r => {
+
+            const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
                 show(`${dots}
                     <div style="font-size:13px;margin-bottom:6px;color:#795548;">Đang chuẩn bị mã khuyến mãi...</div>
                     <span class="mkm-timer">${r}s</span>
-                    <div class="mkm-progress"><div class="mkm-progress-bar" style="width:${pct}%"></div></div>`,
-                    'mkm-countdown');
+                    <div class="mkm-progress"><div class="mkm-progress-bar" style="width:${pct}%"></div></div>
+                    ${isPaused ? '<div class="mkm-paused-note">Vui lòng ở lại trang để đếm ngược tiếp tục.</div>' : ''}
+                `, 'mkm-countdown');
             };
-            render(rem);
-            const iv = setInterval(() => {
+
+            const tick = () => {
                 rem--;
-                if (rem <= 0) { clearInterval(iv); resolve(); } else render(rem);
-            }, 1000);
+                if (rem <= 0) {
+                    clearInterval(ivId);
+                    document.removeEventListener('visibilitychange', onVisibility);
+                    resolve();
+                } else {
+                    render(rem, false);
+                }
+            };
+
+            const onVisibility = () => {
+                if (document.hidden) {
+                    paused = true;
+                    clearInterval(ivId);
+                    render(rem, true);
+                } else {
+                    paused = false;
+                    render(rem, false);
+                    ivId = setInterval(tick, 1000);
+                }
+            };
+
+            document.addEventListener('visibilitychange', onVisibility);
+
+            render(rem, paused);
+            if (!paused) {
+                ivId = setInterval(tick, 1000);
+            }
         });
     }
 
     async function finalizeAndShow(state, stepTimestamps) {
-        show('⏳ Đang tạo mã...', 'mkm-loading');
+        show('Đang tạo mã...', 'mkm-loading');
         const code      = genCode(CFG.codeLength);
         const claimedAt = Timestamp.now();
         const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
@@ -225,9 +248,9 @@
                 code,
             });
         } catch (e) {
-            show(`<strong>Không lưu được mã.</strong> Vui lòng thử lại.
+            show(`Không lưu được mã. Vui lòng thử lại.
                 <div style="text-align:center;margin-top:10px">
-                    <button class="mkm-retry-btn" id="mkm-retry-btn">🔄 Thử lại</button>
+                    <button class="mkm-retry-btn" id="mkm-retry-btn">Thử lại</button>
                 </div>`, 'mkm-error');
             document.getElementById('mkm-retry-btn')?.addEventListener('click',
                 () => finalizeAndShow(state, stepTimestamps));
@@ -239,7 +262,7 @@
             <div style="text-align:center;font-size:13px;margin-bottom:2px;color:#2e7d32;font-weight:600;">Mã khuyến mãi của bạn</div>
             <span class="mkm-code-box">${code}</span>
             <div style="text-align:center">
-                <button class="mkm-copy-btn" id="mkm-copy-btn">📋 Sao chép mã</button>
+                <button class="mkm-copy-btn" id="mkm-copy-btn">Sao chép mã</button>
             </div>
         `, 'mkm-success');
         document.getElementById('mkm-copy-btn')?.addEventListener('click', () => {
@@ -248,8 +271,10 @@
     }
 
     async function runSimpleFlow() {
-        busy = true; btn.disabled = true;
-        show('⏳ Đang kết nối...', 'mkm-loading');
+        busy = true;
+        btn.remove();
+
+        show('Đang kết nối...', 'mkm-loading');
 
         const startedAt      = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis()];
@@ -268,13 +293,8 @@
                 steps_completed: 0,   code: null,
             });
         } catch (e) {
-            show(`Không kết nối được. Vui lòng thử lại.
-                <div style="text-align:center;margin-top:10px">
-                    <button class="mkm-retry-btn" id="r">🔄 Thử lại</button>
-                </div>`, 'mkm-error');
-            document.getElementById('r')?.addEventListener('click',
-                () => { busy = false; btn.disabled = false; runSimpleFlow(); });
-            busy = false; btn.disabled = false; return;
+            show(`Không kết nối được. Vui lòng tải lại trang.`, 'mkm-error');
+            busy = false; return;
         }
 
         await countdown(0, 1, activeStepCfg.countdown_times[0]);
@@ -286,8 +306,10 @@
     }
 
     async function runMultiStepFlow() {
-        busy = true; btn.disabled = true;
-        show('⏳ Đang kết nối...', 'mkm-loading');
+        busy = true;
+        btn.remove();
+
+        show('Đang kết nối...', 'mkm-loading');
 
         const startedAt = Timestamp.now();
         let claimRef;
@@ -305,13 +327,8 @@
                 steps_completed: 0,   code: null,
             });
         } catch (e) {
-            show(`Không kết nối được. Vui lòng thử lại.
-                <div style="text-align:center;margin-top:10px">
-                    <button class="mkm-retry-btn" id="r">🔄 Thử lại</button>
-                </div>`, 'mkm-error');
-            document.getElementById('r')?.addEventListener('click',
-                () => { busy = false; btn.disabled = false; runMultiStepFlow(); });
-            busy = false; btn.disabled = false; return;
+            show(`Không kết nối được. Vui lòng tải lại trang.`, 'mkm-error');
+            busy = false; return;
         }
 
         await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
@@ -349,21 +366,20 @@
             const dots = stepDots(1, state.max_steps);
             show(`
                 ${dots}
-                <div style="font-size:14px;font-weight:700;color:#424242;margin-bottom:4px;">Bước 1 hoàn thành 🎉</div>
+                <div style="font-size:14px;font-weight:700;color:#424242;margin-bottom:4px;">Bước 1 hoàn thành</div>
                 <div class="mkm-wait-desc">
-                    Để nhận mã, bạn hãy ghé xem thêm một trang khác trên website,<br>
-                    sau đó quay lại đây và nhấn <strong>Tiếp tục</strong>.
+                    Hãy ghé xem thêm một trang khác trên website,
+                    sau đó quay lại đây và nhấn <strong>Tiếp tục</strong> để nhận mã.
                 </div>
-                ${!unlocked ? `<div class="mkm-wait-hint">Bạn đang ở: ${originPath}</div>` : ''}
-                <button class="mkm-next-btn" id="mkm-next-btn" ${unlocked ? '' : 'disabled'}>
-                    ${unlocked ? '▶ Tiếp tục nhận mã' : '⏳ Chờ bạn xem thêm trang khác...'}
-                </button>
-                ${unlocked ? '<div style="font-size:12px;color:#43a047;text-align:center;margin-top:6px;">✓ Sẵn sàng rồi!</div>' : ''}
+                ${unlocked
+                    ? `<button class="mkm-next-btn" id="mkm-next-btn">Tiếp tục nhận mã</button>
+                       <div style="font-size:12px;color:#43a047;text-align:center;margin-top:6px;">Sẵn sàng rồi!</div>`
+                    : ''
+                }
             `, 'mkm-wait');
 
             if (unlocked) {
                 document.getElementById('mkm-next-btn')?.addEventListener('click', () => {
-                    if (location.pathname === originPath) return;
                     runStep2(state);
                 });
             }
@@ -383,9 +399,6 @@
     }
 
     async function runStep2(state) {
-        const nextBtn = document.getElementById('mkm-next-btn');
-        if (nextBtn) nextBtn.disabled = true;
-
         const stepTimestamps = [...state.step_starts];
 
         for (let i = 1; i < state.max_steps; i++) {
@@ -410,17 +423,17 @@
     }
 
     function handleResume(state) {
-        busy = true; btn.style.display = 'none';
+        busy = true;
+        btn.remove();
         if (state.steps_completed >= 1) {
             showWaitNextPage(state);
         } else {
             clearState();
-            btn.style.display = '';
             busy = false;
         }
     }
 
-    let busy      = false;
+    let busy = false;
     const visitorId = getVisitorId();
 
     const pending = loadState();
