@@ -250,11 +250,15 @@
         const startedMs = state.step_starts[0];
         const durSec    = Math.round((claimedAt.toMillis() - startedMs) / 1000);
 
-        const stepRows = stepTimestamps.map((ts, i) => {
-            const nextTs = stepTimestamps[i + 1] || claimedAt.toMillis();
-            const diff   = fmtMs(nextTs - ts);
-            return `<tr><td>Bước ${i + 1}:</td><td>${fmtTime(ts)} <span style="opacity:.6">(${diff})</span></td></tr>`;
-        }).join('');
+        // Với 1step chỉ có 1 timestamp (start) → không cần hiện stepRows
+        // Với 2step có [start, step1Done] → chỉ hiện từ index 1 trở đi (bỏ start)
+        const stepRows = stepTimestamps.length > 1
+            ? stepTimestamps.slice(1).map((ts, i) => {
+                const nextTs = stepTimestamps[i + 2] || claimedAt.toMillis();
+                const diff   = fmtMs(nextTs - ts);
+                return `<tr><td>Bước ${i + 1} xong:</td><td>${fmtTime(ts)} <span style="opacity:.6">(+${diff})</span></td></tr>`;
+              }).join('')
+            : '';
 
         try {
             await updateDoc(doc(db, CFG.col, state.docId), {
