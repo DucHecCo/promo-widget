@@ -1,26 +1,5 @@
-/**
- * =====================================================
- * MÃ KHUYẾN MÃI WIDGET — Multi-step
- *
- * LUỒNG:
- *  1step_*  → đếm ngược → trả mã
- *  2step_*  → bước 1: đếm ngược số giây [0]
- *              → đánh dấu, user sang trang khác
- *              → quay lại / trang mới: nhấn nút "Tiếp tục"
- *              → bước 2: đếm ngược số giây [1] → trả mã
- *
- * Firestore "claims":
- *   visitor_id, domain, plan, max_steps, countdown_times
- *   started_at, step_timestamps[], claimed_at, duration_sec
- *   steps_completed, code
- *
- * Firestore "configs":
- *   Document ID = hostname → field: plan (string)
- * =====================================================
- */
 (async () => {
 
-    // ── Firebase config ──────────────────────────────────────────
     const FIREBASE_CONFIG = {
         apiKey:            "AIzaSyDeycy4mB_KcBGay9qNtN4oJ8R2ejd2w-Q",
         authDomain:        "traffic1m.firebaseapp.com",
@@ -30,14 +9,13 @@
         appId:             "1:7324624117:web:648907f451d43fc43f51bc",
     };
 
-    // ── Step config map ──────────────────────────────────────────
     const STEP_CONFIG = {
-        '1step_60':  { max_steps: 1, countdown_times: [60]       },
-        '1step_90':  { max_steps: 1, countdown_times: [90]       },
-        '1step_120': { max_steps: 1, countdown_times: [120]      },
-        '2step_75':  { max_steps: 2, countdown_times: [60,  15]  },
-        '2step_90':  { max_steps: 2, countdown_times: [70,  20]  },
-        '2step_120': { max_steps: 2, countdown_times: [90,  30]  },
+        '1step_60':  { max_steps: 1, countdown_times: [60]      },
+        '1step_90':  { max_steps: 1, countdown_times: [90]      },
+        '1step_120': { max_steps: 1, countdown_times: [120]     },
+        '2step_75':  { max_steps: 2, countdown_times: [60,  15] },
+        '2step_90':  { max_steps: 2, countdown_times: [70,  20] },
+        '2step_120': { max_steps: 2, countdown_times: [90,  30] },
     };
 
     const DEFAULT_PLAN    = '1step_60';
@@ -52,44 +30,33 @@
         configCol:  'configs',
     };
 
-    // ── Load Firebase ────────────────────────────────────────────
     let db, FS;
     try {
         const { initializeApp, getApps, getApp } =
             await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
         const { getFirestore, collection, addDoc, updateDoc, doc, getDoc, Timestamp } =
             await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        // Tránh lỗi duplicate-app nếu script load nhiều lần
         const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
         db = getFirestore(app);
         FS = { collection, addDoc, updateDoc, doc, getDoc, Timestamp };
-    } catch (e) { console.error('[MKM] Firebase load fail:', e); return; }
+    } catch (e) { return; }
 
     const { collection, addDoc, updateDoc, doc, getDoc, Timestamp } = FS;
 
-    // ── Đọc plan từ Firestore theo domain ────────────────────────
     const hostname = window.location.hostname;
     let activePlan    = DEFAULT_PLAN;
     let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
     try {
         const snap = await getDoc(doc(db, CFG.configCol, hostname));
-        console.log(`[MKM] Config lookup → hostname: "${hostname}" | exists: ${snap.exists()}`);
         if (snap.exists()) {
             const key = snap.data().plan;
-            console.log(`[MKM] Plan from Firestore: "${key}" | known: ${!!STEP_CONFIG[key]}`);
             if (STEP_CONFIG[key]) {
                 activePlan    = key;
                 activeStepCfg = STEP_CONFIG[key];
-            } else {
-                console.warn(`[MKM] ⚠️ Plan "${key}" không có trong STEP_CONFIG → dùng default`);
             }
-        } else {
-            console.warn(`[MKM] ⚠️ Không tìm thấy doc configs/"${hostname}" → dùng default`);
         }
-        console.log(`[MKM] ✅ activePlan: "${activePlan}" | max_steps: ${activeStepCfg.max_steps}`);
-    } catch (e) { console.warn('[MKM] Không đọc config:', e.message); }
+    } catch (e) {}
 
-    // ── Helpers ──────────────────────────────────────────────────
     function getVisitorId() {
         let v = localStorage.getItem('_mkm_vid');
         if (!v) {
@@ -103,25 +70,17 @@
         crypto.getRandomValues(a);
         return Array.from(a, b => c[b % c.length]).join('');
     }
-    function fmtTime(ts) {
-        return (ts && ts.toDate ? ts.toDate() : new Date(ts))
-            .toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-    function fmtMs(ms) {
-        const s = Math.round(ms / 1000);
-        return s >= 60 ? `${Math.floor(s / 60)}p ${s % 60}s` : `${s}s`;
-    }
     const saveState  = v  => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify(v));
     const loadState  = () => { try { return JSON.parse(localStorage.getItem(CLAIM_STORE_KEY)); } catch { return null; } };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
 
-    // ── CSS ──────────────────────────────────────────────────────
     document.head.insertAdjacentHTML('beforeend', `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
         #mkm-widget,#mkm-widget *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
-        #mkm-widget{display:inline-block;text-align:center;}
+        #mkm-widget{display:block;width:100%;max-width:420px;margin:0 auto;text-align:center;}
+
         #mkm-btn{
-            display:inline-flex;align-items:center;gap:8px;padding:12px 24px;
+            display:inline-flex;align-items:center;gap:8px;padding:12px 28px;
             background:${CFG.btnColor};color:#fff;border:none;border-radius:10px;
             font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;
             transition:background .2s,transform .15s,box-shadow .2s;
@@ -130,30 +89,18 @@
         #mkm-btn:hover:not(:disabled){background:${CFG.btnHover};transform:translateY(-2px);}
         #mkm-btn:disabled{background:#bdbdbd;cursor:not-allowed;box-shadow:none;opacity:.7;}
 
-        #mkm-popup{
-            position:fixed;bottom:24px;right:24px;min-width:270px;max-width:min(370px,94vw);
-            padding:16px 20px 16px 24px;border-radius:14px;font-size:14px;line-height:1.65;
-            z-index:999999;border:1.5px solid transparent;word-break:break-word;
-            box-shadow:0 8px 30px rgba(0,0,0,.14);transition:opacity .25s,transform .25s;
+        #mkm-panel{
+            margin-top:16px;padding:18px 20px;border-radius:14px;font-size:14px;
+            line-height:1.65;word-break:break-word;text-align:left;
+            border:1.5px solid transparent;
         }
-        #mkm-popup.mkm-hidden{opacity:0;transform:translateY(12px);pointer-events:none;}
-        #mkm-popup::before{content:'';position:absolute;left:0;top:12%;bottom:12%;width:4px;border-radius:0 4px 4px 0;}
-        #mkm-popup.mkm-loading{background:#e3f2fd;border-color:#42a5f5;color:#0d47a1;}
-        #mkm-popup.mkm-loading::before{background:#42a5f5;}
-        #mkm-popup.mkm-countdown{background:#fff8e1;border-color:#ffb300;color:#5d4037;}
-        #mkm-popup.mkm-countdown::before{background:#ffb300;}
-        #mkm-popup.mkm-wait{background:#f3e5f5;border-color:#ab47bc;color:#4a148c;}
-        #mkm-popup.mkm-wait::before{background:#ab47bc;}
-        #mkm-popup.mkm-success{background:#e8f5e9;border-color:#43a047;color:#1b5e20;}
-        #mkm-popup.mkm-success::before{background:#43a047;}
-        #mkm-popup.mkm-error{background:#ffebee;border-color:#ef5350;color:#b71c1c;}
-        #mkm-popup.mkm-error::before{background:#ef5350;}
+        #mkm-panel:empty{display:none;}
+        #mkm-panel.mkm-loading{background:#e3f2fd;border-color:#42a5f5;color:#0d47a1;}
+        #mkm-panel.mkm-countdown{background:#fff8e1;border-color:#ffb300;color:#5d4037;}
+        #mkm-panel.mkm-wait{background:#fafafa;border-color:#e0e0e0;color:#424242;}
+        #mkm-panel.mkm-success{background:#e8f5e9;border-color:#43a047;color:#1b5e20;}
+        #mkm-panel.mkm-error{background:#ffebee;border-color:#ef5350;color:#b71c1c;}
 
-        .mkm-step-badge{
-            display:inline-block;font-size:11px;font-weight:700;
-            background:rgba(171,71,188,.15);color:#7b1fa2;
-            border:1px solid rgba(171,71,188,.35);border-radius:20px;padding:2px 10px;margin-bottom:6px;
-        }
         .mkm-timer{
             display:inline-block;font-size:22px;font-weight:800;font-family:'Courier New',monospace;
             color:#e65100;background:rgba(255,152,0,.15);padding:2px 10px;
@@ -163,21 +110,17 @@
         .mkm-progress-bar{height:100%;background:linear-gradient(90deg,#ffb300,#ff6f00);border-radius:4px;transition:width .85s linear;}
 
         .mkm-code-box{
-            display:block;margin:10px 0 4px;padding:10px 20px;
+            display:block;margin:12px 0 6px;padding:12px 20px;
             background:linear-gradient(135deg,#d4edda,#b2dfdb);border:2px dashed #43a047;border-radius:10px;
-            font-size:26px;font-weight:800;letter-spacing:6px;color:#1b5e20;
+            font-size:28px;font-weight:800;letter-spacing:6px;color:#1b5e20;
             font-family:'Courier New',monospace;text-align:center;
         }
-        .mkm-meta{font-size:11px;color:#388e3c;opacity:.85;margin-top:6px;text-align:center;line-height:1.8;}
-        .mkm-meta table{width:100%;border-collapse:collapse;}
-        .mkm-meta td{padding:1px 4px;}
-        .mkm-meta td:first-child{text-align:right;opacity:.7;}
-        .mkm-meta td:last-child{text-align:left;font-weight:700;}
 
         .mkm-copy-btn{
             display:inline-flex;align-items:center;gap:6px;margin-top:10px;
-            padding:7px 16px;background:#43a047;color:#fff;border:none;border-radius:8px;
-            font-size:12px;font-weight:700;cursor:pointer;transition:background .2s;
+            padding:8px 20px;background:#43a047;color:#fff;border:none;border-radius:8px;
+            font-size:13px;font-weight:700;cursor:pointer;transition:background .2s;
+            width:100%;justify-content:center;
         }
         .mkm-copy-btn:hover{background:#2e7d32;}
         .mkm-copy-btn.copied{background:#00796b;}
@@ -187,38 +130,51 @@
             margin-top:12px;width:100%;padding:10px 16px;
             background:#7b1fa2;color:#fff;border:none;border-radius:10px;
             font-size:14px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;
-            box-shadow:0 4px 12px rgba(123,31,162,.35);
+            box-shadow:0 4px 12px rgba(123,31,162,.25);
         }
         .mkm-next-btn:hover{background:#4a148c;transform:translateY(-1px);}
-        .mkm-next-btn:disabled{background:#bdbdbd;cursor:not-allowed;box-shadow:none;}
+        .mkm-next-btn:disabled{background:#bdbdbd;cursor:not-allowed;box-shadow:none;transform:none;}
 
         .mkm-retry-btn{
             display:inline-flex;align-items:center;gap:6px;margin-top:10px;
-            padding:7px 16px;background:#e53935;color:#fff;border:none;border-radius:8px;
-            font-size:12px;font-weight:700;cursor:pointer;
+            padding:8px 18px;background:#e53935;color:#fff;border:none;border-radius:8px;
+            font-size:13px;font-weight:700;cursor:pointer;width:100%;justify-content:center;
         }
         .mkm-retry-btn:hover{background:#b71c1c;}
 
-        .mkm-checklist{list-style:none;padding:0;margin:8px 0 0;text-align:left;}
-        .mkm-checklist li{padding:3px 0;font-size:13px;}
-        .mkm-checklist li.done{color:#2e7d32;font-weight:600;}
-        .mkm-checklist li.pending{color:#7b1fa2;font-weight:600;}
-        .mkm-checklist li.waiting{color:#9e9e9e;}
+        .mkm-steps{display:flex;gap:6px;margin-bottom:14px;}
+        .mkm-step-dot{
+            flex:1;height:4px;border-radius:4px;background:#e0e0e0;transition:background .4s;
+        }
+        .mkm-step-dot.active{background:#ffb300;}
+        .mkm-step-dot.done{background:#43a047;}
+
+        .mkm-wait-desc{
+            font-size:13px;color:#616161;margin:10px 0 14px;line-height:1.7;
+        }
+        .mkm-wait-hint{
+            display:inline-block;font-size:12px;color:#9e9e9e;
+            background:#f5f5f5;border-radius:6px;padding:4px 10px;margin-bottom:12px;
+        }
     </style>`);
 
-    // ── Widget HTML ──────────────────────────────────────────────
+    // Widget gắn vào footer hoặc body
     const widget = document.createElement('div');
     widget.id = 'mkm-widget';
-    widget.innerHTML = `<button id="mkm-btn">${CFG.btnLabel}</button>`;
+    widget.innerHTML = `<button id="mkm-btn">${CFG.btnLabel}</button><div id="mkm-panel"></div>`;
     (document.getElementById('mkm-container') || document.querySelector('footer') || document.body)
         .appendChild(widget);
 
-    const popup = document.createElement('div');
-    popup.id = 'mkm-popup'; popup.className = 'mkm-hidden';
-    document.body.appendChild(popup);
+    const panel  = document.getElementById('mkm-panel');
+    const btn    = document.getElementById('mkm-btn');
+    const show   = (html, cls) => { panel.className = cls; panel.innerHTML = html; };
 
-    const btn  = document.getElementById('mkm-btn');
-    const show = (html, cls) => { popup.className = cls; popup.innerHTML = html; };
+    function stepDots(current, total) {
+        if (total < 2) return '';
+        return `<div class="mkm-steps">${Array.from({length: total}, (_, i) =>
+            `<div class="mkm-step-dot ${i < current ? 'done' : i === current ? 'active' : ''}"></div>`
+        ).join('')}</div>`;
+    }
 
     function copyText(text, el) {
         const done = () => {
@@ -234,15 +190,15 @@
         });
     }
 
-    // ── Đếm ngược (trả về Promise khi xong) ──────────────────────
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
             let rem = seconds;
-            const badge = totalSteps > 1
-                ? `<div class="mkm-step-badge">Bước ${stepIdx + 1} / ${totalSteps}</div>` : '';
+            const dots = stepDots(stepIdx, totalSteps);
             const render = r => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                show(`${badge}🎯 Đang chuẩn bị mã... <span class="mkm-timer">${r}s</span>
+                show(`${dots}
+                    <div style="font-size:13px;margin-bottom:6px;color:#795548;">Đang chuẩn bị mã khuyến mãi...</div>
+                    <span class="mkm-timer">${r}s</span>
                     <div class="mkm-progress"><div class="mkm-progress-bar" style="width:${pct}%"></div></div>`,
                     'mkm-countdown');
             };
@@ -254,24 +210,11 @@
         });
     }
 
-    // ── Lưu mã và hiện kết quả ───────────────────────────────────
     async function finalizeAndShow(state, stepTimestamps) {
-        show('⏳ Đang lưu mã...', 'mkm-loading');
+        show('⏳ Đang tạo mã...', 'mkm-loading');
         const code      = genCode(CFG.codeLength);
         const claimedAt = Timestamp.now();
-        const startedMs = stepTimestamps[0];
-        const durSec    = Math.round((claimedAt.toMillis() - startedMs) / 1000);
-
-        // stepTimestamps layout:
-        //   1step: [start]
-        //   2step: [start, step1Done]  → step1Done = thời điểm xong đếm bước 1
-        // Với 2step, hiện thêm dòng "Xong bước 1" ở giữa
-        let stepRows = '';
-        if (stepTimestamps.length >= 2) {
-            const step1Done = stepTimestamps[1];
-            const waitSec   = fmtMs(claimedAt.toMillis() - step1Done);
-            stepRows = `<tr><td>⏩ Xong bước 1:</td><td>${fmtTime(step1Done)}</td></tr>`;
-        }
+        const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
 
         try {
             await updateDoc(doc(db, CFG.col, state.docId), {
@@ -281,10 +224,9 @@
                 step_timestamps: stepTimestamps,
                 code,
             });
-            console.log(`[MKM] ✅ Mã OK: ${code} | ${activePlan} | ${durSec}s`);
         } catch (e) {
-            show(`❌ <strong>Lưu mã thất bại.</strong><br><small>${e.message}</small>
-                <div style="text-align:center">
+            show(`<strong>Không lưu được mã.</strong> Vui lòng thử lại.
+                <div style="text-align:center;margin-top:10px">
                     <button class="mkm-retry-btn" id="mkm-retry-btn">🔄 Thử lại</button>
                 </div>`, 'mkm-error');
             document.getElementById('mkm-retry-btn')?.addEventListener('click',
@@ -294,16 +236,8 @@
 
         clearState();
         show(`
-            🎉 <strong>Mã khuyến mãi của bạn:</strong>
+            <div style="text-align:center;font-size:13px;margin-bottom:2px;color:#2e7d32;font-weight:600;">Mã khuyến mãi của bạn</div>
             <span class="mkm-code-box">${code}</span>
-            <div class="mkm-meta">
-                <table>
-                    <tr><td>🕐 Bắt đầu:</td><td>${fmtTime(startedMs)}</td></tr>
-                    ${stepRows}
-                    <tr><td>🕑 Nhận mã:</td><td>${fmtTime(claimedAt.toMillis())}</td></tr>
-                    <tr><td>⏱ Tổng:</td><td>${durSec} giây</td></tr>
-                </table>
-            </div>
             <div style="text-align:center">
                 <button class="mkm-copy-btn" id="mkm-copy-btn">📋 Sao chép mã</button>
             </div>
@@ -313,9 +247,6 @@
         });
     }
 
-    // ════════════════════════════════════════════════════════════
-    // LUỒNG 1STEP — chỉ đếm ngược → trả mã
-    // ════════════════════════════════════════════════════════════
     async function runSimpleFlow() {
         busy = true; btn.disabled = true;
         show('⏳ Đang kết nối...', 'mkm-loading');
@@ -337,8 +268,8 @@
                 steps_completed: 0,   code: null,
             });
         } catch (e) {
-            show(`❌ <strong>Không kết nối được Firebase.</strong><br><small>${e.message}</small>
-                <div style="text-align:center">
+            show(`Không kết nối được. Vui lòng thử lại.
+                <div style="text-align:center;margin-top:10px">
                     <button class="mkm-retry-btn" id="r">🔄 Thử lại</button>
                 </div>`, 'mkm-error');
             document.getElementById('r')?.addEventListener('click',
@@ -346,7 +277,6 @@
             busy = false; btn.disabled = false; return;
         }
 
-        // Đếm ngược bước duy nhất
         await countdown(0, 1, activeStepCfg.countdown_times[0]);
 
         await finalizeAndShow(
@@ -355,12 +285,6 @@
         );
     }
 
-    // ════════════════════════════════════════════════════════════
-    // LUỒNG 2STEP
-    //  Bước 1: đếm ngược countdown_times[0] giây
-    //          → lưu state → hiện nút "Tiếp tục" (user cần sang trang khác)
-    //  Bước 2: user nhấn nút → đếm ngược countdown_times[1] giây → trả mã
-    // ════════════════════════════════════════════════════════════
     async function runMultiStepFlow() {
         busy = true; btn.disabled = true;
         show('⏳ Đang kết nối...', 'mkm-loading');
@@ -380,10 +304,9 @@
                 claimed_at:      null, duration_sec: null,
                 steps_completed: 0,   code: null,
             });
-            console.log('[MKM] ✅ Doc tạo OK:', claimRef.id);
         } catch (e) {
-            show(`❌ <strong>Không kết nối được Firebase.</strong><br><small>${e.message}</small>
-                <div style="text-align:center">
+            show(`Không kết nối được. Vui lòng thử lại.
+                <div style="text-align:center;margin-top:10px">
                     <button class="mkm-retry-btn" id="r">🔄 Thử lại</button>
                 </div>`, 'mkm-error');
             document.getElementById('r')?.addEventListener('click',
@@ -391,10 +314,8 @@
             busy = false; btn.disabled = false; return;
         }
 
-        // ── BƯỚC 1: đếm ngược ────────────────────────────────────
         await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
 
-        // Ghi Firestore bước 1 xong
         const step1Done      = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis(), step1Done.toMillis()];
         try {
@@ -403,50 +324,41 @@
                 step_timestamps:    stepTimestamps,
                 step1_completed_at: step1Done,
             });
-        } catch (e) { console.warn('[MKM] Không update step1:', e.message); }
+        } catch (e) {}
 
-        // Lưu state để resume nếu cần
         const state = {
             docId:           claimRef.id,
             plan:            activePlan,
             max_steps:       activeStepCfg.max_steps,
             countdown_times: activeStepCfg.countdown_times,
-            step_starts:     stepTimestamps,   // [start, step1Done]
+            step_starts:     stepTimestamps,
             steps_completed: 1,
             hostname,
-            origin_path:     location.pathname, // đánh dấu path trang bắt đầu
+            origin_path:     location.pathname,
             visitorId,
         };
         saveState(state);
 
-        // ── Hiện màn hình chờ user sang trang khác ────────────────
         showWaitNextPage(state);
     }
 
-    // ── Hiện UI chờ "sang trang khác" + nút Tiếp tục ─────────────
     function showWaitNextPage(state) {
-        const totalSteps = state.max_steps;
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
+            const dots = stepDots(1, state.max_steps);
             show(`
-                <div class="mkm-step-badge">Bước 1 / ${totalSteps} ✅ hoàn thành</div>
-                <ul class="mkm-checklist">
-                    <li class="done">✅ Bước 1: Đã hoàn thành</li>
-                    <li class="${unlocked ? 'done' : 'pending'}">
-                        ${unlocked ? '✅ Đã truy cập trang mới' : '⏳ Cần truy cập trang khác (cùng tên miền, khác đường dẫn)'}
-                    </li>
-                </ul>
-                <div style="margin-top:8px;font-size:12px;color:#6a1b9a;background:rgba(106,27,154,.08);padding:6px 10px;border-radius:8px">
-                    📌 Trang hiện tại: <code style="font-size:11px">${originPath}</code>
+                ${dots}
+                <div style="font-size:14px;font-weight:700;color:#424242;margin-bottom:4px;">Bước 1 hoàn thành 🎉</div>
+                <div class="mkm-wait-desc">
+                    Để nhận mã, bạn hãy ghé xem thêm một trang khác trên website,<br>
+                    sau đó quay lại đây và nhấn <strong>Tiếp tục</strong>.
                 </div>
-                ${unlocked
-                    ? `<div style="margin-top:8px;font-size:13px;color:#2e7d32">🎯 Nhấn <strong>"Tiếp tục"</strong> để nhận mã!</div>
-                       <button class="mkm-next-btn" id="mkm-next-btn">▶ Tiếp tục nhận mã</button>`
-                    : `<button class="mkm-next-btn" id="mkm-next-btn" disabled style="opacity:.45;cursor:not-allowed;margin-top:12px">
-                           🔒 Cần truy cập trang khác trước
-                       </button>`
-                }
+                ${!unlocked ? `<div class="mkm-wait-hint">Bạn đang ở: ${originPath}</div>` : ''}
+                <button class="mkm-next-btn" id="mkm-next-btn" ${unlocked ? '' : 'disabled'}>
+                    ${unlocked ? '▶ Tiếp tục nhận mã' : '⏳ Chờ bạn xem thêm trang khác...'}
+                </button>
+                ${unlocked ? '<div style="font-size:12px;color:#43a047;text-align:center;margin-top:6px;">✓ Sẵn sàng rồi!</div>' : ''}
             `, 'mkm-wait');
 
             if (unlocked) {
@@ -457,11 +369,9 @@
             }
         }
 
-        // Render ngay lập tức
         const alreadyNew = (location.pathname !== originPath);
         renderWait(alreadyNew);
 
-        // Nếu chưa unlock: polling mỗi 800ms để phát hiện navigate
         if (!alreadyNew) {
             const pollId = setInterval(() => {
                 if (location.pathname !== originPath) {
@@ -472,15 +382,12 @@
         }
     }
 
-    // ── Chạy bước 2 (+ bước 3 nếu có) sau khi user nhấn nút ─────
     async function runStep2(state) {
-        // Tắt nút để tránh bấm 2 lần
         const nextBtn = document.getElementById('mkm-next-btn');
         if (nextBtn) nextBtn.disabled = true;
 
-        const stepTimestamps = [...state.step_starts]; // đã có [start, step1Done]
+        const stepTimestamps = [...state.step_starts];
 
-        // Chạy các bước countdown còn lại (từ index 1 trở đi)
         for (let i = 1; i < state.max_steps; i++) {
             await countdown(i, state.max_steps, state.countdown_times[i]);
 
@@ -489,11 +396,11 @@
 
             try {
                 await updateDoc(doc(db, CFG.col, state.docId), {
-                    steps_completed:          i + 1,
-                    step_timestamps:          stepTimestamps,
+                    steps_completed:              i + 1,
+                    step_timestamps:              stepTimestamps,
                     [`step${i + 1}_completed_at`]: stepDone,
                 });
-            } catch (e) { console.warn(`[MKM] Không update step${i + 1}:`, e.message); }
+            } catch (e) {}
         }
 
         await finalizeAndShow(
@@ -502,27 +409,20 @@
         );
     }
 
-    // ── RESUME khi user load lại trang (có pending state) ────────
     function handleResume(state) {
         busy = true; btn.style.display = 'none';
-        console.log('[MKM] Resume state, steps_completed:', state.steps_completed);
-
         if (state.steps_completed >= 1) {
-            // Bước 1 đã xong → hiện lại màn hình chờ sang trang khác
             showWaitNextPage(state);
         } else {
-            // Bước 1 chưa xong (ít gặp) → reset
             clearState();
             btn.style.display = '';
             busy = false;
         }
     }
 
-    // ── MAIN ─────────────────────────────────────────────────────
     let busy      = false;
     const visitorId = getVisitorId();
 
-    // Kiểm tra pending claim
     const pending = loadState();
     if (pending && pending.hostname === hostname && pending.visitorId === getVisitorId()) {
         handleResume(pending);
