@@ -55,10 +55,13 @@
     // ── Load Firebase ────────────────────────────────────────────
     let db, FS;
     try {
-        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+        const { initializeApp, getApps, getApp } =
+            await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
         const { getFirestore, collection, addDoc, updateDoc, doc, getDoc, Timestamp } =
             await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        db = getFirestore(initializeApp(FIREBASE_CONFIG));
+        // Tránh lỗi duplicate-app nếu script load nhiều lần
+        const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+        db = getFirestore(app);
         FS = { collection, addDoc, updateDoc, doc, getDoc, Timestamp };
     } catch (e) { console.error('[MKM] Firebase load fail:', e); return; }
 
@@ -70,11 +73,20 @@
     let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
     try {
         const snap = await getDoc(doc(db, CFG.configCol, hostname));
+        console.log(`[MKM] Config lookup → hostname: "${hostname}" | exists: ${snap.exists()}`);
         if (snap.exists()) {
             const key = snap.data().plan;
-            if (STEP_CONFIG[key]) { activePlan = key; activeStepCfg = STEP_CONFIG[key]; }
+            console.log(`[MKM] Plan from Firestore: "${key}" | known: ${!!STEP_CONFIG[key]}`);
+            if (STEP_CONFIG[key]) {
+                activePlan    = key;
+                activeStepCfg = STEP_CONFIG[key];
+            } else {
+                console.warn(`[MKM] ⚠️ Plan "${key}" không có trong STEP_CONFIG → dùng default`);
+            }
+        } else {
+            console.warn(`[MKM] ⚠️ Không tìm thấy doc configs/"${hostname}" → dùng default`);
         }
-        console.log(`[MKM] Plan: ${activePlan}`, activeStepCfg);
+        console.log(`[MKM] ✅ activePlan: "${activePlan}" | max_steps: ${activeStepCfg.max_steps}`);
     } catch (e) { console.warn('[MKM] Không đọc config:', e.message); }
 
     // ── Helpers ──────────────────────────────────────────────────
