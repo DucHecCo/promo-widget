@@ -57,14 +57,6 @@
         }
     } catch (e) {}
 
-    function getVisitorId() {
-        let v = localStorage.getItem('_mkm_vid');
-        if (!v) {
-            v = 'v_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-            localStorage.setItem('_mkm_vid', v);
-        }
-        return v;
-    }
     function genCode(n) {
         const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', a = new Uint8Array(n);
         crypto.getRandomValues(a);
@@ -130,11 +122,11 @@
         .mkm-next-btn{
             display:inline-flex;align-items:center;justify-content:center;gap:6px;
             margin-top:12px;width:100%;padding:10px 16px;
-            background:#7b1fa2;color:#fff;border:none;border-radius:10px;
+            background:#f57c00;color:#fff;border:none;border-radius:10px;
             font-size:14px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;
-            box-shadow:0 4px 12px rgba(123,31,162,.25);
+            box-shadow:0 4px 12px rgba(245,124,0,.3);
         }
-        .mkm-next-btn:hover{background:#4a148c;transform:translateY(-1px);}
+        .mkm-next-btn:hover{background:#e65100;transform:translateY(-1px);}
 
         .mkm-retry-btn{
             display:inline-flex;align-items:center;gap:6px;margin-top:10px;
@@ -282,7 +274,6 @@
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
-                visitor_id:      visitorId,
                 domain:          window.location.origin,
                 plan:            activePlan,
                 max_steps:       1,
@@ -316,7 +307,6 @@
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
-                visitor_id:      visitorId,
                 domain:          window.location.origin,
                 plan:            activePlan,
                 max_steps:       activeStepCfg.max_steps,
@@ -352,7 +342,6 @@
             steps_completed: 1,
             hostname,
             origin_path:     location.pathname,
-            visitorId,
         };
         saveState(state);
 
@@ -366,16 +355,7 @@
             const dots = stepDots(1, state.max_steps);
             show(`
                 ${dots}
-                <div style="font-size:14px;font-weight:700;color:#424242;margin-bottom:4px;">Bước 1 hoàn thành</div>
-                <div class="mkm-wait-desc">
-                    Hãy ghé xem thêm một trang khác trên website,
-                    sau đó quay lại đây và nhấn <strong>Tiếp tục</strong> để nhận mã.
-                </div>
-                ${unlocked
-                    ? `<button class="mkm-next-btn" id="mkm-next-btn">Tiếp tục nhận mã</button>
-                       <div style="font-size:12px;color:#43a047;text-align:center;margin-top:6px;">Sẵn sàng rồi!</div>`
-                    : ''
-                }
+                ${unlocked ? `<button class="mkm-next-btn" id="mkm-next-btn">Tiếp tục nhận mã</button>` : ''}
             `, 'mkm-wait');
 
             if (unlocked) {
@@ -434,10 +414,9 @@
     }
 
     let busy = false;
-    const visitorId = getVisitorId();
 
     const pending = loadState();
-    if (pending && pending.hostname === hostname && pending.visitorId === getVisitorId()) {
+    if (pending && pending.hostname === hostname) {
         handleResume(pending);
     }
 
