@@ -1,315 +1,197 @@
 /**
  * =====================================================
- * MÃ KHUYẾN MÃI WIDGET — Firebase Realtime Database
- * Nhúng vào HTML: <script type="module" src="ma-khuyen-mai.js"></script>
+ * MÃ KHUYẾN MÃI WIDGET — Firebase Firestore Edition
+ * Nhúng vào web: <script type="module" src="...ma-khuyen-mai.js"></script>
  *
- * CẤU TRÚC REALTIME DATABASE:
- *
- * claims/
- *   └── {auto_id}/
- *         ├── visitor_id   : "v_ab3f9x..."
- *         ├── domain       : "https://yoursite.com"
- *         ├── started_at   : 1712345678901   (milliseconds)
- *         ├── claimed_at   : 1712345688901   (milliseconds)
- *         ├── duration_sec : 10
- *         └── code         : "F7KM2PQR"
+ * FIRESTORE — collection "claims":
+ *   visitor_id   : ID thiết bị (lưu localStorage)
+ *   domain       : domain web khách hàng
+ *   started_at   : timestamp lúc nhấn nút
+ *   claimed_at   : timestamp lúc nhận mã
+ *   duration_sec : số giây từ bấm → nhận mã
+ *   code         : mã khuyến mãi random
  * =====================================================
  */
-
 (async () => {
 
     // ============================================================
-    // ⚙️  CẤU HÌNH FIREBASE — ĐIỀN VÀO ĐÂY
-    //
-    // Cách lấy:
-    //   Firebase Console → Project Overview (bánh răng) →
-    //   Project settings → Your apps → SDK setup and configuration
+    // FIREBASE CONFIG (traffic1m project)
     // ============================================================
     const FIREBASE_CONFIG = {
-        apiKey:            "PASTE_YOUR_apiKey_HERE",
-        authDomain:        "PASTE_YOUR_authDomain_HERE",
-        projectId:         "PASTE_YOUR_projectId_HERE",
-        storageBucket:     "PASTE_YOUR_storageBucket_HERE",
-        messagingSenderId: "PASTE_YOUR_messagingSenderId_HERE",
-        appId:             "PASTE_YOUR_appId_HERE",
-
-        // ★ QUAN TRỌNG: URL Realtime Database của bạn
-        // Lấy tại: Realtime Database → trang Données → copy URL trên cùng
-        // Ví dụ: "https://traffic1m-default-rtdb.firebaseio.com"
-        databaseURL:       "https://traffic1m-default-rtdb.firebaseio.com",
+        apiKey:            "AIzaSyDeycy4mB_KcBGay9qNtN4oJ8R2ejd2w-Q",
+        authDomain:        "traffic1m.firebaseapp.com",
+        projectId:         "traffic1m",
+        storageBucket:     "traffic1m.firebasestorage.app",
+        messagingSenderId: "7324624117",
+        appId:             "1:7324624117:web:648907f451d43fc43f51bc",
     };
 
     // ============================================================
-    // ⚙️  CÀI ĐẶT WIDGET
+    // CÀI ĐẶT WIDGET — tuỳ chỉnh tại đây
     // ============================================================
     const CONFIG = {
-        btnLabel:      "🎁 Lấy mã khuyến mãi",
-        btnColor:      "#e53935",
-        btnHoverColor: "#b71c1c",
-        countdownSec:  10,          // Giây đếm ngược trước khi hiện mã
-        codeLength:    8,           // Độ dài mã (ký tự)
-        dbPath:        "claims",    // Tên nhánh trong Realtime Database
+        btnLabel:       "🎁 Lấy mã khuyến mãi",
+        btnColor:       "#e53935",
+        btnHoverColor:  "#b71c1c",
+        countdownSec:   10,        // Giây đếm ngược
+        codeLength:     8,         // Độ dài mã random
+        collectionName: "claims",  // Tên collection Firestore
     };
 
     // ============================================================
-    // LOAD FIREBASE SDK — Realtime Database (ESM CDN)
+    // LOAD FIREBASE SDK (Firestore)
     // ============================================================
-    let db, rtHelpers;
+    let db, fsHelpers;
     try {
         const { initializeApp } = await import(
-            'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js'
+            "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"
         );
-        const {
-            getDatabase,
-            ref,
-            push,
-            update,
-            serverTimestamp,
-        } = await import(
-            'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js'
+        const { getFirestore, collection, addDoc, updateDoc, doc, Timestamp } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
         );
-
         const app = initializeApp(FIREBASE_CONFIG);
-        db = getDatabase(app);
-        rtHelpers = { ref, push, update, serverTimestamp };
+        db = getFirestore(app);
+        fsHelpers = { collection, addDoc, updateDoc, doc, Timestamp };
     } catch (e) {
-        console.error('[MKM] Không tải được Firebase SDK:', e);
+        console.error("[MKM] Lỗi load Firebase:", e);
         return;
     }
 
-    const { ref, push, update, serverTimestamp } = rtHelpers;
+    const { collection, addDoc, updateDoc, doc, Timestamp } = fsHelpers;
 
     // ============================================================
-    // VISITOR ID — nhận diện thiết bị, lưu localStorage
+    // VISITOR ID — nhận diện thiết bị
     // ============================================================
     function getVisitorId() {
-        let vid = localStorage.getItem('_mkm_vid');
+        let vid = localStorage.getItem("_mkm_vid");
         if (!vid) {
-            vid = 'v_' + Math.random().toString(36).slice(2, 10)
-                      + Date.now().toString(36);
-            localStorage.setItem('_mkm_vid', vid);
+            vid = "v_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+            localStorage.setItem("_mkm_vid", vid);
         }
         return vid;
     }
 
     // ============================================================
-    // TẠO MÃ RANDOM (chữ hoa + số, bỏ O/0/1/I dễ nhầm)
+    // TẠO MÃ RANDOM (chữ hoa + số, loại ký tự dễ nhầm)
     // ============================================================
     function generateCode(length) {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        const arr   = new Uint8Array(length);
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        const arr = new Uint8Array(length);
         crypto.getRandomValues(arr);
-        return Array.from(arr, b => chars[b % chars.length]).join('');
+        return Array.from(arr, b => chars[b % chars.length]).join("");
     }
 
     // ============================================================
-    // FORMAT THỜI GIAN (milliseconds → HH:MM:SS)
+    // FORMAT GIỜ PHÚT GIÂY (vi-VN)
     // ============================================================
-    function fmtMs(ms) {
-        return new Date(ms).toLocaleTimeString('vi-VN', {
-            hour: '2-digit', minute: '2-digit', second: '2-digit'
-        });
+    function fmtTime(ts) {
+        const d = ts.toDate ? ts.toDate() : new Date(ts);
+        return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     }
 
     // ============================================================
     // INJECT CSS
     // ============================================================
-    document.head.insertAdjacentHTML('beforeend', `
-    <style>
+    document.head.insertAdjacentHTML("beforeend", `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
+        #mkm-widget,#mkm-widget *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
+        #mkm-widget{display:inline-block;text-align:center;}
 
-        #mkm-widget, #mkm-widget * {
-            box-sizing: border-box;
-            font-family: 'Be Vietnam Pro', sans-serif;
+        #mkm-btn{
+            display:inline-flex;align-items:center;gap:8px;
+            padding:12px 24px;background:${CONFIG.btnColor};color:#fff;
+            border:none;border-radius:10px;font-size:15px;font-weight:700;
+            letter-spacing:.4px;cursor:pointer;-webkit-appearance:none;
+            transition:background .2s,transform .15s,box-shadow .2s;
+            box-shadow:0 4px 14px rgba(229,57,53,.35);
         }
-        #mkm-widget { display: inline-block; text-align: center; }
+        #mkm-btn:hover:not(:disabled){background:${CONFIG.btnHoverColor};transform:translateY(-2px);box-shadow:0 7px 20px rgba(229,57,53,.40);}
+        #mkm-btn:active:not(:disabled){transform:translateY(0);}
+        #mkm-btn:disabled{background:#bdbdbd;cursor:not-allowed;box-shadow:none;opacity:.7;}
 
-        /* ── NÚT ── */
-        #mkm-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 24px;
-            background: ${CONFIG.btnColor};
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 700;
-            letter-spacing: 0.4px;
-            cursor: pointer;
-            transition: background .2s, transform .15s, box-shadow .2s;
-            box-shadow: 0 4px 14px rgba(229,57,53,.35);
-            -webkit-appearance: none;
+        #mkm-popup{
+            position:fixed;bottom:24px;right:24px;
+            min-width:270px;max-width:min(370px,94vw);
+            padding:16px 20px 16px 24px;border-radius:14px;
+            font-size:14px;line-height:1.65;z-index:999999;
+            border:1.5px solid transparent;word-break:break-word;
+            box-shadow:0 8px 30px rgba(0,0,0,.14);
+            transition:opacity .25s ease,transform .25s ease;
         }
-        #mkm-btn:hover:not(:disabled) {
-            background: ${CONFIG.btnHoverColor};
-            transform: translateY(-2px);
-            box-shadow: 0 7px 20px rgba(229,57,53,.40);
-        }
-        #mkm-btn:active:not(:disabled) { transform: translateY(0); }
-        #mkm-btn:disabled {
-            background: #bdbdbd;
-            cursor: not-allowed;
-            box-shadow: none;
-            opacity: .7;
-        }
+        #mkm-popup.mkm-hidden{opacity:0;transform:translateY(12px);pointer-events:none;}
+        #mkm-popup::before{content:'';position:absolute;left:0;top:12%;bottom:12%;width:4px;border-radius:0 4px 4px 0;}
 
-        /* ── POPUP ── */
-        #mkm-popup {
-            position: fixed;
-            bottom: 24px; right: 24px;
-            min-width: 270px;
-            max-width: min(370px, 94vw);
-            padding: 16px 20px 16px 24px;
-            border-radius: 14px;
-            font-size: 14px;
-            line-height: 1.65;
-            z-index: 999999;
-            border: 1.5px solid transparent;
-            transition: opacity .25s ease, transform .25s ease;
-            word-break: break-word;
-            box-shadow: 0 8px 30px rgba(0,0,0,.14);
+        #mkm-popup.mkm-loading  {background:#e3f2fd;border-color:#42a5f5;color:#0d47a1;}
+        #mkm-popup.mkm-loading::before  {background:#42a5f5;}
+        #mkm-popup.mkm-countdown{background:#fff8e1;border-color:#ffb300;color:#5d4037;}
+        #mkm-popup.mkm-countdown::before{background:#ffb300;}
+        #mkm-popup.mkm-success  {background:#e8f5e9;border-color:#43a047;color:#1b5e20;}
+        #mkm-popup.mkm-success::before  {background:#43a047;}
+        #mkm-popup.mkm-error    {background:#ffebee;border-color:#ef5350;color:#b71c1c;}
+        #mkm-popup.mkm-error::before    {background:#ef5350;}
+
+        .mkm-code-box{
+            display:block;margin:10px 0 4px;padding:10px 20px;
+            background:linear-gradient(135deg,#d4edda,#b2dfdb);
+            border:2px dashed #43a047;border-radius:10px;
+            font-size:26px;font-weight:800;letter-spacing:6px;
+            color:#1b5e20;font-family:'Courier New',monospace;text-align:center;
         }
-        #mkm-popup.mkm-hidden   { opacity:0; transform:translateY(12px); pointer-events:none; }
+        .mkm-meta{font-size:11px;color:#388e3c;opacity:.85;margin-top:6px;text-align:center;line-height:1.7;}
 
-        /* Thanh màu trái */
-        #mkm-popup::before {
-            content:'';
-            position:absolute; left:0; top:12%; bottom:12%;
-            width:4px; border-radius:0 4px 4px 0;
+        .mkm-copy-btn{
+            display:inline-flex;align-items:center;gap:6px;
+            margin-top:10px;padding:7px 16px;background:#43a047;color:#fff;
+            border:none;border-radius:8px;font-size:12px;font-weight:700;
+            cursor:pointer;transition:background .2s,transform .15s;letter-spacing:.3px;
         }
+        .mkm-copy-btn:hover{background:#2e7d32;transform:translateY(-1px);}
+        .mkm-copy-btn.copied{background:#00796b;cursor:default;}
 
-        /* Màu theo trạng thái */
-        #mkm-popup.mkm-loading  { background:#e3f2fd; border-color:#42a5f5; color:#0d47a1; }
-        #mkm-popup.mkm-loading::before  { background:#42a5f5; }
-
-        #mkm-popup.mkm-countdown{ background:#fff8e1; border-color:#ffb300; color:#5d4037; }
-        #mkm-popup.mkm-countdown::before{ background:#ffb300; }
-
-        #mkm-popup.mkm-success  { background:#e8f5e9; border-color:#43a047; color:#1b5e20; }
-        #mkm-popup.mkm-success::before  { background:#43a047; }
-
-        #mkm-popup.mkm-error    { background:#ffebee; border-color:#ef5350; color:#b71c1c; }
-        #mkm-popup.mkm-error::before    { background:#ef5350; }
-
-        /* ── MÃ ── */
-        .mkm-code-box {
-            display: block;
-            margin: 10px 0 4px;
-            padding: 10px 20px;
-            background: linear-gradient(135deg,#d4edda,#b2dfdb);
-            border: 2px dashed #43a047;
-            border-radius: 10px;
-            font-size: 26px;
-            font-weight: 800;
-            letter-spacing: 6px;
-            color: #1b5e20;
-            font-family: 'Courier New', monospace;
-            text-align: center;
+        .mkm-timer{
+            display:inline-block;font-size:22px;font-weight:800;
+            font-family:'Courier New',monospace;color:#e65100;
+            background:rgba(255,152,0,.15);padding:2px 10px;
+            border-radius:6px;border:1px solid rgba(255,152,0,.35);
+            vertical-align:middle;min-width:52px;text-align:center;
         }
-        .mkm-meta {
-            font-size: 11px;
-            color: #388e3c;
-            opacity: .85;
-            margin-top: 6px;
-            text-align: center;
-            line-height: 1.8;
-        }
-
-        /* ── NÚT COPY ── */
-        .mkm-copy-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 10px;
-            padding: 7px 16px;
-            background: #43a047;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background .2s, transform .15s;
-        }
-        .mkm-copy-btn:hover { background:#2e7d32; transform:translateY(-1px); }
-        .mkm-copy-btn.copied { background:#00796b; cursor:default; }
-
-        /* ── TIMER ── */
-        .mkm-timer {
-            display: inline-block;
-            font-size: 22px;
-            font-weight: 800;
-            font-family: 'Courier New', monospace;
-            color: #e65100;
-            background: rgba(255,152,0,.15);
-            padding: 2px 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(255,152,0,.35);
-            vertical-align: middle;
-            min-width: 52px;
-            text-align: center;
-        }
-
-        /* ── PROGRESS ── */
-        .mkm-progress {
-            height: 6px;
-            background: rgba(0,0,0,.1);
-            border-radius: 4px;
-            margin-top: 10px;
-            overflow: hidden;
-        }
-        .mkm-progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg,#ffb300,#ff6f00);
-            border-radius: 4px;
-            transition: width 0.85s linear;
-        }
+        .mkm-progress{height:6px;background:rgba(0,0,0,.1);border-radius:4px;margin-top:10px;overflow:hidden;}
+        .mkm-progress-bar{height:100%;background:linear-gradient(90deg,#ffb300,#ff6f00);border-radius:4px;transition:width .85s linear;}
     </style>`);
 
     // ============================================================
-    // RENDER WIDGET
+    // TẠO WIDGET HTML
     // ============================================================
-    const widget = document.createElement('div');
-    widget.id = 'mkm-widget';
+    const widget = document.createElement("div");
+    widget.id = "mkm-widget";
     widget.innerHTML = `<button id="mkm-btn">${CONFIG.btnLabel}</button>`;
 
-    const anchor = document.getElementById('mkm-container')
-                || document.querySelector('footer')
+    const anchor = document.getElementById("mkm-container")
+                || document.querySelector("footer")
                 || document.body;
     anchor.appendChild(widget);
 
-    const popup = document.createElement('div');
-    popup.id = 'mkm-popup';
-    popup.className = 'mkm-hidden';
+    const popup = document.createElement("div");
+    popup.id = "mkm-popup";
+    popup.className = "mkm-hidden";
     document.body.appendChild(popup);
 
-    const btn = document.getElementById('mkm-btn');
+    const btn = document.getElementById("mkm-btn");
+    const showPopup = (html, cls) => { popup.className = cls; popup.innerHTML = html; };
 
     // ============================================================
-    // HELPERS
+    // SAO CHÉP CLIPBOARD
     // ============================================================
-    const showPopup = (html, cls) => {
-        popup.className = cls;
-        popup.innerHTML = html;
-    };
-
     function copyText(text, el) {
         const done = () => {
-            el.classList.add('copied');
-            el.textContent = '✓ Đã sao chép!';
-            setTimeout(() => {
-                el.classList.remove('copied');
-                el.textContent = '📋 Sao chép mã';
-            }, 2500);
+            el.classList.add("copied");
+            el.textContent = "✓ Đã sao chép!";
+            setTimeout(() => { el.classList.remove("copied"); el.textContent = "📋 Sao chép mã"; }, 2500);
         };
         navigator.clipboard?.writeText(text).then(done).catch(() => {
-            const ta = Object.assign(document.createElement('textarea'),
-                { value: text, style: 'position:fixed;opacity:0' });
-            document.body.appendChild(ta);
-            ta.select();
-            try { document.execCommand('copy'); done(); } catch(_) {}
+            const ta = Object.assign(document.createElement("textarea"), { value: text, style: "position:fixed;opacity:0" });
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand("copy"); done(); } catch(_) {}
             document.body.removeChild(ta);
         });
     }
@@ -320,95 +202,77 @@
     let busy = false;
     const visitorId = getVisitorId();
 
-    btn.addEventListener('click', async () => {
+    btn.addEventListener("click", async () => {
         if (busy) return;
         busy = true;
         btn.disabled = true;
 
-        // ── BƯỚC 1: Ghi started_at vào Realtime DB ───────────────
-        showPopup('⏳ Đang khởi tạo...', 'mkm-loading');
-
-        const startedMs = Date.now();
-        let claimKey    = null;
+        // ── 1. Ghi started_at vào Firestore ──
+        showPopup("⏳ Đang khởi tạo...", "mkm-loading");
+        const startedAt = Timestamp.now();
+        let claimRef = null;
 
         try {
-            // push() tạo node con với ID tự động (kiểu -NxYz...)
-            const claimsRef  = ref(db, CONFIG.dbPath);
-            const newNodeRef = await push(claimsRef, {
+            claimRef = await addDoc(collection(db, CONFIG.collectionName), {
                 visitor_id:   visitorId,
                 domain:       window.location.origin,
-                started_at:   startedMs,   // ⏱ Thời điểm nhấn nút (ms)
+                started_at:   startedAt,
                 claimed_at:   null,
                 duration_sec: null,
                 code:         null,
             });
-            claimKey = newNodeRef.key;     // ID tự động, ví dụ: -OAbc123xyz
         } catch (e) {
-            showPopup(
-                '❌ Không kết nối được Firebase.<br>'
-              + '<small>Kiểm tra lại FIREBASE_CONFIG và databaseURL!</small>',
-                'mkm-error'
-            );
+            showPopup("❌ Không kết nối được Firebase.<br><small>Vui lòng kiểm tra lại cấu hình.</small>", "mkm-error");
             btn.disabled = false;
             busy = false;
             return;
         }
 
-        // ── BƯỚC 2: Đếm ngược ────────────────────────────────────
+        // ── 2. Đếm ngược ──
         await new Promise(resolve => {
-            let rem   = CONFIG.countdownSec;
+            let rem = CONFIG.countdownSec;
             const total = rem;
-
             const render = r => {
                 const pct = Math.round((1 - r / total) * 100);
-                showPopup(`
-                    🎯 Đang chuẩn bị mã... <span class="mkm-timer">${r}s</span>
-                    <div class="mkm-progress">
-                        <div class="mkm-progress-bar" style="width:${pct}%"></div>
-                    </div>
-                `, 'mkm-countdown');
+                showPopup(`🎯 Đang chuẩn bị mã... <span class="mkm-timer">${r}s</span>
+                    <div class="mkm-progress"><div class="mkm-progress-bar" style="width:${pct}%"></div></div>`,
+                    "mkm-countdown");
             };
-
             render(rem);
-            const iv = setInterval(() => {
-                rem--;
-                if (rem <= 0) { clearInterval(iv); resolve(); }
-                else render(rem);
-            }, 1000);
+            const iv = setInterval(() => { rem--; if (rem <= 0) { clearInterval(iv); resolve(); } else render(rem); }, 1000);
         });
 
-        // ── BƯỚC 3: Tạo mã + cập nhật claimed_at vào DB ─────────
+        // ── 3. Tạo mã + ghi claimed_at ──
         const code      = generateCode(CONFIG.codeLength);
-        const claimedMs = Date.now();
-        const durSec    = Math.round((claimedMs - startedMs) / 1000);
+        const claimedAt = Timestamp.now();
+        const durSec    = Math.round((claimedAt.toMillis() - startedAt.toMillis()) / 1000);
 
         try {
-            // update() chỉ ghi đè các field được chỉ định, giữ nguyên phần còn lại
-            await update(ref(db, `${CONFIG.dbPath}/${claimKey}`), {
-                claimed_at:   claimedMs,   // ⏱ Thời điểm mã được trả (ms)
-                duration_sec: durSec,       // ⏱ Tổng giây chờ
-                code:         code,         // 🔑 Mã khuyến mãi
+            await updateDoc(doc(db, CONFIG.collectionName, claimRef.id), {
+                claimed_at:   claimedAt,
+                duration_sec: durSec,
+                code:         code,
             });
         } catch (e) {
-            console.warn('[MKM] Không cập nhật được claimed_at:', e);
+            console.warn("[MKM] Không cập nhật được claimed_at:", e);
         }
 
-        // ── BƯỚC 4: Hiện mã cho user ─────────────────────────────
+        // ── 4. Hiện mã ──
         showPopup(`
             🎉 <strong>Mã khuyến mãi của bạn:</strong>
-            <span class="mkm-code-box">${code}</span>
+            <span class="mkm-code-box" id="mkm-code-val">${code}</span>
             <div class="mkm-meta">
-                🕐 Bắt đầu: <strong>${fmtMs(startedMs)}</strong><br>
-                🕑 Nhận mã: <strong>${fmtMs(claimedMs)}</strong><br>
+                🕐 Bắt đầu: <strong>${fmtTime(startedAt)}</strong><br>
+                🕑 Nhận mã: <strong>${fmtTime(claimedAt)}</strong><br>
                 ⏱ Thời gian xử lý: <strong>${durSec} giây</strong>
             </div>
             <div style="text-align:center">
                 <button class="mkm-copy-btn" id="mkm-copy-btn">📋 Sao chép mã</button>
             </div>
-        `, 'mkm-success');
+        `, "mkm-success");
 
-        document.getElementById('mkm-copy-btn')?.addEventListener('click', () => {
-            copyText(code, document.getElementById('mkm-copy-btn'));
+        document.getElementById("mkm-copy-btn")?.addEventListener("click", () => {
+            copyText(code, document.getElementById("mkm-copy-btn"));
         });
     });
 
