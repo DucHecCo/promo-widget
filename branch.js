@@ -45,6 +45,8 @@
 
     const DEFAULT_PLAN    = '1step_60';
     const CLAIM_STORE_KEY = '_mkm_session';
+    // ✅ THAY ĐỔI 1: Thời hạn localStorage là 3 phút (180,000ms)
+    const CLAIM_STORE_TTL = 3 * 60 * 1000;
 
     const CFG = {
         btnLabel:   'Lấy mã khuyến mãi',
@@ -122,9 +124,21 @@
         return genCode(CFG.codeLength - 4) + ts;
     }
 
-    const saveState  = v  => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify(v));
+    // ✅ THAY ĐỔI 1: Lưu kèm timestamp, load có kiểm tra TTL
+    const saveState  = v  => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({
+        ...v,
+        _savedAt: Date.now(),
+    }));
     const loadState  = () => {
-        try { return JSON.parse(localStorage.getItem(CLAIM_STORE_KEY)); } catch { return null; }
+        try {
+            const raw = JSON.parse(localStorage.getItem(CLAIM_STORE_KEY));
+            if (!raw) return null;
+            if (Date.now() - (raw._savedAt || 0) > CLAIM_STORE_TTL) {
+                localStorage.removeItem(CLAIM_STORE_KEY);
+                return null;
+            }
+            return raw;
+        } catch { return null; }
     };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
 
@@ -196,18 +210,6 @@
         .${ucls('dot')}{flex:1;height:3px;border-radius:4px;background:#e0e0e0;transition:background .4s;}
         .${ucls('dot')}.${ucls('active')}{background:#ffa726;}
         .${ucls('dot')}.${ucls('done')} {background:#aed581;}
-
-        .${ucls('hintbox')}{
-            background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;
-            padding:12px 14px;margin-top:4px;text-align:center;
-        }
-        .${ucls('htitle')}{font-size:13.5px;font-weight:700;color:#424242;margin-bottom:4px;}
-        .${ucls('hdesc')} {font-size:12.5px;color:#757575;line-height:1.6;}
-        .${ucls('hbadge')}{
-            display:inline-block;margin-top:8px;padding:3px 10px;
-            background:#f5f5f5;border:1px dashed #bdbdbd;border-radius:20px;
-            font-size:12px;color:#616161;font-weight:600;
-        }
     </style>`);
 
     const widget = document.createElement('div');
@@ -267,16 +269,13 @@
         });
     }
 
-    const COUNTDOWN_HINTS = [
-        'Mã đang được chuẩn bị, vui lòng chờ trong giây lát.',
-        'Hệ thống đang xử lý, chỉ còn một chút nữa thôi.',
-        'Mã sẽ sẵn sàng ngay sau đây.',
-        'Đang tạo mã riêng cho bạn, xin chờ.',
-        'Vui lòng giữ trang, mã sắp được tạo xong.',
-    ];
+    // ✅ THAY ĐỔI 2 & 3: Thông báo đếm ngược thay đổi theo thời gian còn lại
+    const MSG_PREPARING = 'Đang tạo mã khuyến mãi riêng cho bạn...';
+    const MSG_FETCHING  = 'Đang lấy mã khuyến mãi...';
+    const SWITCH_AT_SEC = 7; // Đổi thông báo khi còn ≤ 7 giây
 
-    function pickHint() {
-        return COUNTDOWN_HINTS[Math.floor(Math.random() * COUNTDOWN_HINTS.length)];
+    function getCountdownMsg(rem) {
+        return rem <= SWITCH_AT_SEC ? MSG_FETCHING : MSG_PREPARING;
     }
 
     function countdown(stepIdx, totalSteps, seconds) {
@@ -285,12 +284,13 @@
             let paused = document.hidden;
             let ivId   = null;
             const dots = stepDots(stepIdx, totalSteps);
-            const hint = pickHint();
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
+                // ✅ Dùng getCountdownMsg(r) thay vì pickHint() cố định
+                const msg = getCountdownMsg(r);
                 show(`${dots}
-                    <div style="font-size:13px;margin-bottom:10px;color:#757575;text-align:center;">${hint}</div>
+                    <div style="font-size:13px;margin-bottom:10px;color:#757575;text-align:center;">${msg}</div>
                     <div style="text-align:center;">
                         <span class="${ucls('timer')}">${r}s</span>
                     </div>
@@ -423,6 +423,7 @@
         showWaitNextPage(state);
     }
 
+    // ✅ THAY ĐỔI 4: Bỏ hintbox, chỉ hiển thị text đơn giản
     function showWaitNextPage(state) {
         removeBtn();
         const originPath = state.origin_path || location.pathname;
@@ -432,20 +433,12 @@
             const nid  = uid('n');
 
             const hintHtml = !unlocked ? `
-                <div class="${ucls('hintbox')}">
-                    <div class="${ucls('htitle')}">Bước đầu hoàn thành</div>
-                    <div class="${ucls('hdesc')}">
-                        Bạn có thể xem thêm một trang khác trên website —<br>
-                        mã sẽ sẵn sàng khi bạn quay lại đây.
-                    </div>
-                    <span class="${ucls('hbadge')}">Còn 1 bước nữa</span>
+                <div style="text-align:center;font-size:13.5px;color:#757575;padding:8px 0;">
+                    Nếu bạn muốn có thể lấy mã giá trị tốt hơn ở trang khác ạ !
                 </div>
             ` : `
-                <div class="${ucls('hintbox')}" style="background:#f1f8e9;border-color:#aed581;">
-                    <div class="${ucls('htitle')}" style="color:#33691e;">Sẵn sàng rồi</div>
-                    <div class="${ucls('hdesc')}" style="color:#558b2f;">
-                        Nhấn nút bên dưới để nhận mã của bạn.
-                    </div>
+                <div style="text-align:center;font-size:13.5px;color:#757575;padding:8px 0;">
+                    Nếu bạn muốn có thể lấy mã giá trị tốt hơn ở trang khác ạ !
                 </div>
                 <button class="${ucls('nextbtn')}" id="${nid}">Nhận mã ngay</button>
             `;
@@ -456,12 +449,10 @@
             }
         }
 
-        // Unlock nếu storage đã có flag (MPA resume) hoặc pathname đã khác (SPA)
         const unlocked = state.page_visited === true || location.pathname !== originPath;
         renderWait(unlocked);
 
         if (!unlocked) {
-            // MPA: đánh dấu vào storage ngay khi user rời trang (pathname đã đổi lúc beforeunload)
             const onBeforeUnload = () => {
                 if (location.pathname !== originPath) {
                     const fresh = loadState();
@@ -470,7 +461,6 @@
             };
             window.addEventListener('beforeunload', onBeforeUnload);
 
-            // SPA: poll pathname trong cùng session
             const pollId = setInterval(() => {
                 if (location.pathname !== originPath) {
                     clearInterval(pollId);
