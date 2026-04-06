@@ -166,6 +166,22 @@
         .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:4px;transition:width .85s linear;}
         .${ucls('paused')}{font-size:12px;color:#9e9e9e;margin-top:8px;text-align:center;}
 
+        .${ucls('steps-list')}{
+            list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;
+        }
+        .${ucls('step-item')}{
+            display:flex;align-items:center;gap:8px;font-size:12.5px;
+            padding:6px 10px;border-radius:7px;background:#fff9f0;
+            border:1px solid #ffe0b2;color:#6d4c00;transition:all .3s;
+        }
+        .${ucls('step-item')}.${ucls('step-done')}{
+            background:#f1f8e9;border-color:#c5e1a5;color:#33691e;
+        }
+        .${ucls('step-item')}.${ucls('step-active')}{
+            background:#fff3e0;border-color:#ffa726;color:#4e2400;font-weight:700;
+        }
+        .${ucls('step-icon')}{font-size:13px;min-width:16px;text-align:center;}
+
         .${ucls('codebox')}{
             display:block;margin:12px 0 6px;padding:12px 20px;
             background:#f9fbe7;border:1.5px dashed #aed581;border-radius:8px;
@@ -196,10 +212,18 @@
         }
         .${ucls('retrybtn')}:hover{background:#b71c1c;}
 
-        .${ucls('steps')}{display:flex;gap:6px;margin-bottom:14px;}
+        .${ucls('dots')}{display:flex;gap:6px;margin-bottom:14px;}
         .${ucls('dot')}{flex:1;height:3px;border-radius:4px;background:#e0e0e0;transition:background .4s;}
         .${ucls('dot')}.${ucls('active')}{background:#ffa726;}
         .${ucls('dot')}.${ucls('done')} {background:#aed581;}
+
+        @keyframes ${ucls('spin')}{to{transform:rotate(360deg)}}
+        .${ucls('spinner')}{
+            display:inline-block;width:12px;height:12px;
+            border:2px solid #ffa726;border-top-color:transparent;
+            border-radius:50%;animation:${ucls('spin')} .7s linear infinite;
+            vertical-align:middle;
+        }
     </style>`);
 
     const widget = document.createElement('div');
@@ -238,7 +262,7 @@
 
     function stepDots(current, total) {
         if (total < 2) return '';
-        return `<div class="${ucls('steps')}">${
+        return `<div class="${ucls('dots')}">${
             Array.from({length: total}, (_, i) =>
                 `<div class="${ucls('dot')} ${i < current ? ucls('done') : i === current ? ucls('active') : ''}"></div>`
             ).join('')
@@ -259,12 +283,41 @@
         });
     }
 
-    const MSG_PREPARING = 'Đang tạo mã khuyến mãi riêng cho bạn...';
-    const MSG_FETCHING  = 'Đang lấy mã khuyến mãi...';
-    const SWITCH_AT_SEC = 7;
+    // Các bước xử lý có lý do thật, phân bổ theo % thời gian đếm ngược
+    // Mỗi bước: { label, pctStart, pctEnd }
+    // pctStart/pctEnd là % tiến trình (0–100) mà bước này hiển thị là "đang chạy"
+    const PROCESSING_STEPS = [
+        { label: 'Xác minh yêu cầu',         pctStart:  0, pctEnd: 25 },
+        { label: 'Kiểm tra tồn kho mã',       pctStart: 25, pctEnd: 55 },
+        { label: 'Kiểm tra mã hợp lệ',        pctStart: 55, pctEnd: 80 },
+        { label: 'Tạo mã dành riêng cho bạn', pctStart: 80, pctEnd: 100 },
+    ];
 
-    function getCountdownMsg(rem) {
-        return rem <= SWITCH_AT_SEC ? MSG_FETCHING : MSG_PREPARING;
+    function getActiveStepIndex(pct) {
+        // Bước đang active là bước đầu tiên chưa hoàn thành (pctEnd > pct)
+        for (let i = 0; i < PROCESSING_STEPS.length; i++) {
+            if (pct < PROCESSING_STEPS[i].pctEnd) return i;
+        }
+        return PROCESSING_STEPS.length - 1;
+    }
+
+    function renderStepList(pct) {
+        const activeIdx = getActiveStepIndex(pct);
+        const items = PROCESSING_STEPS.map((s, i) => {
+            const done   = pct >= s.pctEnd;
+            const active = i === activeIdx;
+            const cls    = done ? ucls('step-done') : active ? ucls('step-active') : '';
+            const icon   = done
+                ? '✓'
+                : active
+                    ? `<span class="${ucls('spinner')}"></span>`
+                    : '○';
+            return `<li class="${ucls('step-item')} ${cls}">
+                <span class="${ucls('step-icon')}">${icon}</span>
+                <span>${s.label}</span>
+            </li>`;
+        }).join('');
+        return `<ul class="${ucls('steps-list')}">${items}</ul>`;
     }
 
     function countdown(stepIdx, totalSteps, seconds) {
@@ -276,13 +329,11 @@
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                const msg = getCountdownMsg(r);
                 show(`${dots}
-                    <div style="font-size:13px;margin-bottom:10px;color:#757575;text-align:center;">${msg}</div>
-                    <div style="text-align:center;">
-                        <span class="${ucls('timer')}">${r}s</span>
+                    ${renderStepList(pct)}
+                    <div style="margin-top:10px;">
+                        <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
                     </div>
-                    <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
                     ${isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : ''}
                 `, 'countdown');
             };
