@@ -4,16 +4,8 @@
     const uid  = name => `${_p}-${name}`;
     const ucls = name => `${_p}_${name}`;
 
-    const STATIC_CODES = [
-        'WELCOME2025',
-        'FREECODE10',
-        'GIFT88888',
-        'HELLO99999',
-        'BONUS12345',
-    ];
-
     function getStaticCode() {
-        return STATIC_CODES[Math.floor(Math.random() * STATIC_CODES.length)];
+        return 'XINCHAONGUOIMOI';
     }
 
     function isFromGoogle() {
@@ -45,7 +37,6 @@
 
     const DEFAULT_PLAN    = '1step_60';
     const CLAIM_STORE_KEY = '_mkm_session';
-    // ✅ THAY ĐỔI 1: Thời hạn localStorage là 3 phút (180,000ms)
     const CLAIM_STORE_TTL = 3 * 60 * 1000;
 
     const CFG = {
@@ -124,8 +115,7 @@
         return genCode(CFG.codeLength - 4) + ts;
     }
 
-    // ✅ THAY ĐỔI 1: Lưu kèm timestamp, load có kiểm tra TTL
-    const saveState  = v  => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({
+    const saveState  = v => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({
         ...v,
         _savedAt: Date.now(),
     }));
@@ -269,10 +259,9 @@
         });
     }
 
-    // ✅ THAY ĐỔI 2 & 3: Thông báo đếm ngược thay đổi theo thời gian còn lại
     const MSG_PREPARING = 'Đang tạo mã khuyến mãi riêng cho bạn...';
     const MSG_FETCHING  = 'Đang lấy mã khuyến mãi...';
-    const SWITCH_AT_SEC = 7; // Đổi thông báo khi còn ≤ 7 giây
+    const SWITCH_AT_SEC = 7;
 
     function getCountdownMsg(rem) {
         return rem <= SWITCH_AT_SEC ? MSG_FETCHING : MSG_PREPARING;
@@ -287,7 +276,6 @@
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                // ✅ Dùng getCountdownMsg(r) thay vì pickHint() cố định
                 const msg = getCountdownMsg(r);
                 show(`${dots}
                     <div style="font-size:13px;margin-bottom:10px;color:#757575;text-align:center;">${msg}</div>
@@ -423,7 +411,6 @@
         showWaitNextPage(state);
     }
 
-    // ✅ THAY ĐỔI 4: Bỏ hintbox, chỉ hiển thị text đơn giản
     function showWaitNextPage(state) {
         removeBtn();
         const originPath = state.origin_path || location.pathname;
@@ -434,11 +421,11 @@
 
             const hintHtml = !unlocked ? `
                 <div style="text-align:center;font-size:13.5px;color:#757575;padding:8px 0;">
-                    Nếu bạn muốn có thể lấy mã giá trị tốt hơn ở trang khác ạ !
+                    Nếu bạn muốn hãy truy cập trang khác trên trang lấy mã giá trị có giá trị tốt hơn nhé !
                 </div>
             ` : `
                 <div style="text-align:center;font-size:13.5px;color:#757575;padding:8px 0;">
-                    Nếu bạn muốn có thể lấy mã giá trị tốt hơn ở trang khác ạ !
+                    Nếu bạn muốn hãy truy cập trang khác trên trang lấy mã giá trị có giá trị tốt hơn nhé !
                 </div>
                 <button class="${ucls('nextbtn')}" id="${nid}">Nhận mã ngay</button>
             `;
