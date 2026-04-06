@@ -174,7 +174,6 @@
         });
     }
 
-    // Đếm ngược — dừng khi tab ẩn, tiếp tục khi tab hiện
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
             let rem = seconds;
@@ -274,6 +273,7 @@
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
+                hostname:        hostname,                   // ← THÊM: để Security Rules kiểm tra configs
                 domain:          window.location.origin,
                 plan:            activePlan,
                 max_steps:       1,
@@ -307,6 +307,7 @@
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
+                hostname:        hostname,                   // ← THÊM: để Security Rules kiểm tra configs
                 domain:          window.location.origin,
                 plan:            activePlan,
                 max_steps:       activeStepCfg.max_steps,
