@@ -197,13 +197,6 @@
             background:#f5f5f5;border:1px dashed #bdbdbd;border-radius:20px;
             font-size:12px;color:#616161;font-weight:600;
         }
-
-        .${ucls('norefer')}{
-            background:#fafafa;border:1px solid #e0e0e0;border-radius:10px;
-            padding:16px;text-align:center;
-        }
-        .${ucls('nrtitle')}{font-size:13px;font-weight:600;color:#616161;margin-bottom:6px;}
-        .${ucls('nrdesc')} {font-size:12.5px;line-height:1.7;color:#9e9e9e;}
     </style>`);
 
     const widget = document.createElement('div');
@@ -217,6 +210,9 @@
 
     const panel = document.getElementById(uid('panel'));
     const btn   = document.getElementById(uid('btn'));
+
+    // Helper remove btn an toàn (gọi nhiều lần cũng không lỗi)
+    const removeBtn = () => { if (btn.parentNode) btn.parentNode.removeChild(btn); };
 
     const show = (html, type) => {
         panel.className = `${ucls('panel')} ${ucls(type)}`;
@@ -339,9 +335,8 @@
         );
     }
 
-    // ─── Flow 1 bước — KHÔNG kiểm tra referrer ở đây nữa ───────────────────
     async function runSimpleFlow() {
-        busy = true; btn.remove();
+        busy = true; removeBtn();
         show('Đang kết nối...', 'loading');
 
         const startedAt = Timestamp.now();
@@ -369,9 +364,8 @@
         );
     }
 
-    // ─── Flow nhiều bước — KHÔNG kiểm tra referrer ở đây nữa ───────────────
     async function runMultiStepFlow() {
-        busy = true; btn.remove();
+        busy = true; removeBtn();
         show('Đang kết nối...', 'loading');
 
         const startedAt = Timestamp.now();
@@ -414,6 +408,9 @@
     }
 
     function showWaitNextPage(state) {
+        // Đảm bảo btn luôn bị ẩn khi ở trạng thái này
+        removeBtn();
+
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
@@ -481,36 +478,35 @@
         );
     }
 
+    // ─── handleResume: dùng removeBtn() thay vì btn.remove() ────────────────
     function handleResume(state) {
-        busy = true; btn.remove();
+        busy = true;
+        removeBtn(); // <-- fix chính: đảm bảo btn không còn trên DOM
         if (state.steps_completed >= 1) showWaitNextPage(state);
         else { clearState(); busy = false; }
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // KHỞI ĐỘNG — chỉ kiểm tra referrer tại đây (bước 1), không ở nơi nào khác
+    // KHỞI ĐỘNG
     // ════════════════════════════════════════════════════════════════════════
     let busy = false;
 
     const pending = loadState();
     if (pending && pending.hostname === hostname) {
         handleResume(pending);
-        return;
+        return; // <-- return sớm, không gắn listener nào nữa
     }
 
     btn.addEventListener('click', () => {
         if (busy) return;
 
-        // Kiểm tra referrer chỉ khi người dùng nhấn nút lần đầu (bước 1)
+        // Kiểm tra referrer chỉ ở bước 1 (khi nhấn nút lần đầu)
         if (!isFromGoogle()) {
-            busy = true; btn.remove();
+            busy = true; removeBtn();
             show(`
-                <div class="${ucls('norefer')}">
-                    <div class="${ucls('nrtitle')}">Mã khuyến mãi dành cho khách từ Google</div>
-                    <div class="${ucls('nrdesc')}">
-                        Chương trình này áp dụng cho khách truy cập qua kết quả tìm kiếm Google.<br>
-                        Bạn có thể tìm lại trang web qua Google để tham gia nhé.
-                    </div>
+                <div style="padding:4px 0;font-size:13px;color:#9e9e9e;text-align:center;line-height:1.7;">
+                    Mã khuyến mãi dành cho khách truy cập qua Google.<br>
+                    Bạn có thể tìm lại trang qua Google để tham gia nhé.
                 </div>
             `, 'wait');
             return;
