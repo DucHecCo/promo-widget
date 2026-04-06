@@ -4,6 +4,18 @@
     const uid  = name => `${_p}-${name}`;
     const ucls = name => `${_p}_${name}`;
 
+    const STATIC_CODES = [
+        'WELCOME2025',
+        'FREECODE10',
+        'GIFT88888',
+        'HELLO99999',
+        'BONUS12345',
+    ];
+
+    function getStaticCode() {
+        return STATIC_CODES[Math.floor(Math.random() * STATIC_CODES.length)];
+    }
+
     function isFromGoogle() {
         try {
             const ref = document.referrer;
@@ -210,13 +222,27 @@
     const panel = document.getElementById(uid('panel'));
     const btn   = document.getElementById(uid('btn'));
 
-    const removeBtn  = () => { if (btn && btn.parentNode) btn.parentNode.removeChild(btn); };
-    const hidePanel  = () => { panel.className = `${ucls('panel')}`; panel.innerHTML = ''; };
+    const removeBtn = () => { if (btn && btn.parentNode) btn.parentNode.removeChild(btn); };
+    const hidePanel = () => { panel.className = `${ucls('panel')}`; panel.innerHTML = ''; };
 
     const show = (html, type) => {
         panel.className = `${ucls('panel')} ${ucls(type)}`;
         panel.innerHTML = html;
     };
+
+    function showCodeUI(code) {
+        const cid = uid('c');
+        show(`
+            <div style="text-align:center;font-size:13px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã khuyến mãi của bạn</div>
+            <span class="${ucls('codebox')}">${code}</span>
+            <div style="text-align:center">
+                <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
+            </div>
+        `, 'success');
+        document.getElementById(cid)?.addEventListener('click', () =>
+            copyText(code, document.getElementById(cid))
+        );
+    }
 
     function stepDots(current, total) {
         if (total < 2) return '';
@@ -299,7 +325,7 @@
     }
 
     async function finalizeAndShow(state, stepTimestamps) {
-        hidePanel(); // ẩn panel, không hiện "Đang tạo mã..."
+        hidePanel();
         const code      = await genUniqueCode();
         const claimedAt = Timestamp.now();
         const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
@@ -321,22 +347,12 @@
         }
 
         clearState();
-        const cid = uid('c');
-        show(`
-            <div style="text-align:center;font-size:13px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã khuyến mãi của bạn</div>
-            <span class="${ucls('codebox')}">${code}</span>
-            <div style="text-align:center">
-                <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
-            </div>
-        `, 'success');
-        document.getElementById(cid)?.addEventListener('click', () =>
-            copyText(code, document.getElementById(cid))
-        );
+        showCodeUI(code);
     }
 
     async function runSimpleFlow() {
         busy = true; removeBtn();
-        hidePanel(); // ẩn panel, không hiện "Đang kết nối..."
+        hidePanel();
 
         const startedAt = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis()];
@@ -365,7 +381,7 @@
 
     async function runMultiStepFlow() {
         busy = true; removeBtn();
-        hidePanel(); // ẩn panel, không hiện "Đang kết nối..."
+        hidePanel();
 
         const startedAt = Timestamp.now();
         let claimRef;
@@ -401,6 +417,7 @@
             countdown_times: activeStepCfg.countdown_times,
             step_starts: stepTimestamps, steps_completed: 1,
             hostname, origin_path: location.pathname,
+            page_visited: false,
         };
         saveState(state);
         showWaitNextPage(state);
@@ -439,13 +456,27 @@
             }
         }
 
-        const alreadyNew = (location.pathname !== originPath);
-        renderWait(alreadyNew);
+        // Unlock nếu storage đã có flag (MPA resume) hoặc pathname đã khác (SPA)
+        const unlocked = state.page_visited === true || location.pathname !== originPath;
+        renderWait(unlocked);
 
-        if (!alreadyNew) {
+        if (!unlocked) {
+            // MPA: đánh dấu vào storage ngay khi user rời trang (pathname đã đổi lúc beforeunload)
+            const onBeforeUnload = () => {
+                if (location.pathname !== originPath) {
+                    const fresh = loadState();
+                    if (fresh) saveState({ ...fresh, page_visited: true });
+                }
+            };
+            window.addEventListener('beforeunload', onBeforeUnload);
+
+            // SPA: poll pathname trong cùng session
             const pollId = setInterval(() => {
                 if (location.pathname !== originPath) {
                     clearInterval(pollId);
+                    window.removeEventListener('beforeunload', onBeforeUnload);
+                    const fresh = loadState();
+                    if (fresh) saveState({ ...fresh, page_visited: true });
                     renderWait(true);
                 }
             }, 800);
@@ -482,9 +513,6 @@
         else { clearState(); busy = false; }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // KHỞI ĐỘNG
-    // ════════════════════════════════════════════════════════════════════════
     let busy = false;
 
     const pending = loadState();
@@ -495,15 +523,11 @@
 
     btn.addEventListener('click', () => {
         if (busy) return;
+        busy = true;
+        removeBtn();
 
         if (!isFromGoogle()) {
-            busy = true; removeBtn();
-            show(`
-                <div style="font-size:13px;color:#9e9e9e;text-align:center;line-height:1.7;padding:4px 0;">
-                    Mã khuyến mãi dành cho khách truy cập qua Google.<br>
-                    Bạn có thể tìm lại trang qua Google để tham gia nhé.
-                </div>
-            `, 'wait');
+            showCodeUI(getStaticCode());
             return;
         }
 
