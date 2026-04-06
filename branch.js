@@ -25,7 +25,7 @@
         btnLabel:   'Lấy mã khuyến mãi',
         btnColor:   '#e53935',
         btnHover:   '#b71c1c',
-        codeLength: 8,
+        codeLength: 10,          // ← tăng lên 10 ký tự
         col:        'claims',
         configCol:  'configs',
     };
@@ -34,14 +34,16 @@
     try {
         const { initializeApp, getApps, getApp } =
             await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-        const { getFirestore, collection, addDoc, updateDoc, doc, getDoc, Timestamp } =
+        const { getFirestore, collection, addDoc, updateDoc, doc, getDoc,
+                query, where, getDocs, Timestamp } =
             await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
         const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
         db = getFirestore(app);
-        FS = { collection, addDoc, updateDoc, doc, getDoc, Timestamp };
+        FS = { collection, addDoc, updateDoc, doc, getDoc, query, where, getDocs, Timestamp };
     } catch (e) { return; }
 
-    const { collection, addDoc, updateDoc, doc, getDoc, Timestamp } = FS;
+    const { collection, addDoc, updateDoc, doc, getDoc,
+            query, where, getDocs, Timestamp } = FS;
 
     const hostname = window.location.hostname;
     let activePlan    = DEFAULT_PLAN;
@@ -57,11 +59,31 @@
         }
     } catch (e) {}
 
+    // ─── Sinh mã ngẫu nhiên ───────────────────────────────────────────────────
     function genCode(n) {
         const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', a = new Uint8Array(n);
         crypto.getRandomValues(a);
         return Array.from(a, b => c[b % c.length]).join('');
     }
+
+    // ─── Kiểm tra trùng lặp & lấy mã duy nhất ────────────────────────────────
+    async function genUniqueCode(maxTries = 8) {
+        for (let i = 0; i < maxTries; i++) {
+            const code = genCode(CFG.codeLength);
+            try {
+                const snap = await getDocs(
+                    query(collection(db, CFG.col), where('code', '==', code))
+                );
+                if (snap.empty) return code;          // không trùng → dùng luôn
+            } catch (e) {
+                return genCode(CFG.codeLength);        // lỗi query → vẫn trả về mã
+            }
+        }
+        // Fallback: ghép timestamp để chắc chắn không trùng
+        const ts = Date.now().toString(36).toUpperCase().slice(-4);
+        return genCode(CFG.codeLength - 4) + ts;
+    }
+
     const saveState  = v  => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify(v));
     const loadState  = () => { try { return JSON.parse(localStorage.getItem(CLAIM_STORE_KEY)); } catch { return null; } };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
@@ -106,7 +128,7 @@
         .mkm-code-box{
             display:block;margin:12px 0 6px;padding:12px 20px;
             background:linear-gradient(135deg,#d4edda,#b2dfdb);border:2px dashed #43a047;border-radius:10px;
-            font-size:28px;font-weight:800;letter-spacing:6px;color:#1b5e20;
+            font-size:26px;font-weight:800;letter-spacing:5px;color:#1b5e20;
             font-family:'Courier New',monospace;text-align:center;
         }
 
@@ -140,7 +162,19 @@
         .mkm-step-dot.active{background:#ffb300;}
         .mkm-step-dot.done{background:#43a047;}
 
-        .mkm-wait-desc{font-size:13px;color:#616161;margin:10px 0 14px;line-height:1.7;}
+        /* ── Khung gợi ý chuyển trang ── */
+        .mkm-hint-box{
+            background:#fff3e0;border:1.5px solid #ffb300;border-radius:12px;
+            padding:14px 16px;margin-top:4px;text-align:center;
+        }
+        .mkm-hint-icon{font-size:26px;margin-bottom:6px;}
+        .mkm-hint-title{font-size:14px;font-weight:700;color:#e65100;margin-bottom:4px;}
+        .mkm-hint-desc{font-size:12.5px;color:#6d4c41;line-height:1.6;}
+        .mkm-hint-badge{
+            display:inline-block;margin-top:10px;padding:4px 12px;
+            background:#fff8e1;border:1px dashed #ffa000;border-radius:20px;
+            font-size:12px;color:#f57c00;font-weight:600;
+        }
     </style>`);
 
     const widget = document.createElement('div');
@@ -226,7 +260,9 @@
 
     async function finalizeAndShow(state, stepTimestamps) {
         show('Đang tạo mã...', 'mkm-loading');
-        const code      = genCode(CFG.codeLength);
+
+        // ← sinh mã duy nhất (có kiểm tra trùng)
+        const code      = await genUniqueCode();
         const claimedAt = Timestamp.now();
         const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
 
@@ -273,7 +309,7 @@
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
-                hostname:        hostname,                   // ← THÊM: để Security Rules kiểm tra configs
+                hostname:        hostname,
                 domain:          window.location.origin,
                 plan:            activePlan,
                 max_steps:       1,
@@ -307,7 +343,7 @@
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
-                hostname:        hostname,                   // ← THÊM: để Security Rules kiểm tra configs
+                hostname:        hostname,
                 domain:          window.location.origin,
                 plan:            activePlan,
                 max_steps:       activeStepCfg.max_steps,
@@ -349,15 +385,35 @@
         showWaitNextPage(state);
     }
 
+    // ─── Thông báo gợi ý chuyển trang – thân thiện, không ép buộc ─────────────
     function showWaitNextPage(state) {
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
             const dots = stepDots(1, state.max_steps);
-            show(`
-                ${dots}
-                ${unlocked ? `<button class="mkm-next-btn" id="mkm-next-btn">Tiếp tục nhận mã</button>` : ''}
-            `, 'mkm-wait');
+
+            const hintHtml = !unlocked ? `
+                <div class="mkm-hint-box">
+                    <div class="mkm-hint-icon">🎁</div>
+                    <div class="mkm-hint-title">Bước 1 hoàn thành rồi!</div>
+                    <div class="mkm-hint-desc">
+                        Khám phá thêm một trang bất kỳ trên website —<br>
+                        mã khuyến mãi sẽ sẵn sàng ngay khi bạn quay lại.
+                    </div>
+                    <span class="mkm-hint-badge">✨ Chỉ còn 1 bước nữa thôi</span>
+                </div>
+            ` : `
+                <div class="mkm-hint-box" style="background:#e8f5e9;border-color:#43a047;">
+                    <div class="mkm-hint-icon">🎉</div>
+                    <div class="mkm-hint-title" style="color:#2e7d32;">Tuyệt vời! Bạn đã sẵn sàng.</div>
+                    <div class="mkm-hint-desc" style="color:#33691e;">
+                        Nhấn nút bên dưới để nhận mã khuyến mãi của bạn ngay nhé!
+                    </div>
+                </div>
+                <button class="mkm-next-btn" id="mkm-next-btn">🎁 Nhận mã ngay</button>
+            `;
+
+            show(`${dots}${hintHtml}`, 'mkm-wait');
 
             if (unlocked) {
                 document.getElementById('mkm-next-btn')?.addEventListener('click', () => {
