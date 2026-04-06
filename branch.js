@@ -1,12 +1,9 @@
 (async () => {
 
-    // ─── Random prefix – đổi mỗi lần load, chống bypass ─────────────────────
-    const _p = '_' + Math.random().toString(36).slice(2, 8);   // vd: _k3x9mz
+    const _p = '_' + Math.random().toString(36).slice(2, 8);
+    const uid  = name => `${_p}-${name}`;
+    const ucls = name => `${_p}_${name}`;
 
-    const uid  = name => `${_p}-${name}`;      // id   → _k3x9mz-btn
-    const ucls = name => `${_p}_${name}`;      // class → _k3x9mz_panel
-
-    // ─── Kiểm tra referrer bước 1 ────────────────────────────────────────────
     function isFromGoogle() {
         try {
             const ref = document.referrer;
@@ -35,7 +32,7 @@
     };
 
     const DEFAULT_PLAN    = '1step_60';
-    const CLAIM_STORE_KEY = '_mkm_' + _p;   // key localStorage cũng random mỗi session
+    const CLAIM_STORE_KEY = '_mkm_' + _p;
 
     const CFG = {
         btnLabel:   'Lấy mã khuyến mãi',
@@ -45,6 +42,19 @@
         col:        'claims',
         configCol:  'configs',
     };
+
+    // ─── Random thêm giây cho mỗi bước (0 – 30s) ────────────────────────────
+    const RANDOM_EXTRA_MIN = 0;
+    const RANDOM_EXTRA_MAX = 30;
+
+    function randomExtra() {
+        return Math.floor(Math.random() * (RANDOM_EXTRA_MAX - RANDOM_EXTRA_MIN + 1)) + RANDOM_EXTRA_MIN;
+    }
+
+    // Áp dụng random vào countdown_times của plan đang dùng
+    function applyRandomToTimes(times) {
+        return times.map(t => t + randomExtra());
+    }
 
     let db, FS;
     try {
@@ -75,7 +85,12 @@
         }
     } catch (e) {}
 
-    // ─── Sinh mã ngẫu nhiên ──────────────────────────────────────────────────
+    // Random thời gian ngay khi load xong config
+    activeStepCfg = {
+        ...activeStepCfg,
+        countdown_times: applyRandomToTimes(activeStepCfg.countdown_times),
+    };
+
     function genCode(n) {
         const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', a = new Uint8Array(n);
         crypto.getRandomValues(a);
@@ -100,12 +115,10 @@
 
     const saveState  = v  => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify(v));
     const loadState  = () => {
-        // Tìm key của session hiện tại
         try { return JSON.parse(localStorage.getItem(CLAIM_STORE_KEY)); } catch { return null; }
     };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
 
-    // ─── CSS với class / id ngẫu nhiên ───────────────────────────────────────
     document.head.insertAdjacentHTML('beforeend', `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
         #${uid('w')},#${uid('w')} *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
@@ -190,7 +203,6 @@
             font-size:12px;color:#f57c00;font-weight:600;
         }
 
-        /* Thông báo không từ Google */
         .${ucls('norefer')}{
             background:#fff8e1;border:1.5px solid #ffb300;border-radius:12px;
             padding:18px 16px;text-align:center;
@@ -200,7 +212,6 @@
         .${ucls('nrdesc')} {font-size:12.5px;line-height:1.7;color:#6d4c41;}
     </style>`);
 
-    // ─── DOM ─────────────────────────────────────────────────────────────────
     const widget = document.createElement('div');
     widget.id    = uid('w');
     widget.innerHTML = `
@@ -218,7 +229,6 @@
         panel.innerHTML = html;
     };
 
-    // ─── Step dots ───────────────────────────────────────────────────────────
     function stepDots(current, total) {
         if (total < 2) return '';
         return `<div class="${ucls('steps')}">${
@@ -228,7 +238,6 @@
         }</div>`;
     }
 
-    // ─── Copy ────────────────────────────────────────────────────────────────
     function copyText(text, el) {
         const done = () => {
             el.classList.add(ucls('copied')); el.textContent = 'Đã sao chép!';
@@ -243,6 +252,20 @@
         });
     }
 
+    // ─── Danh sách thông báo countdown tự nhiên, không ép buộc ──────────────
+    const COUNTDOWN_HINTS = [
+        { icon: '☕', text: 'Tranh thủ đọc thêm bài viết trong lúc chờ nhé!' },
+        { icon: '🎵', text: 'Mã đang được chuẩn bị, bạn nghỉ ngơi một chút nhé.' },
+        { icon: '📖', text: 'Mã sẽ sẵn sàng ngay sau đây!' },
+        { icon: '🌿', text: 'Đang xử lý, chỉ còn một chút thôi.' },
+        { icon: '✨', text: 'Hệ thống đang tạo mã riêng cho bạn.' },
+    ];
+
+    // Chọn ngẫu nhiên 1 hint khi bắt đầu mỗi bước
+    function pickHint() {
+        return COUNTDOWN_HINTS[Math.floor(Math.random() * COUNTDOWN_HINTS.length)];
+    }
+
     // ─── Countdown ──────────────────────────────────────────────────────────
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
@@ -250,14 +273,18 @@
             let paused = document.hidden;
             let ivId   = null;
             const dots = stepDots(stepIdx, totalSteps);
+            const hint = pickHint(); // chọn hint 1 lần, giữ suốt bước này
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
                 show(`${dots}
-                    <div style="font-size:13px;margin-bottom:6px;color:#795548;">Đang chuẩn bị mã khuyến mãi...</div>
-                    <span class="${ucls('timer')}">${r}s</span>
+                    <div style="text-align:center;margin-bottom:10px;font-size:20px;">${hint.icon}</div>
+                    <div style="font-size:13px;margin-bottom:8px;color:#795548;text-align:center;">${hint.text}</div>
+                    <div style="text-align:center;">
+                        <span class="${ucls('timer')}">${r}s</span>
+                    </div>
                     <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
-                    ${isPaused ? `<div class="${ucls('paused')}">Vui lòng ở lại trang để đếm ngược tiếp tục.</div>` : ''}
+                    ${isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục nhé.</div>` : ''}
                 `, 'countdown');
             };
 
@@ -353,7 +380,7 @@
         );
     }
 
-    // ─── Flow nhiều bước ─────────────────────────────────────────────────────
+    // ─── Flow nhiều bước ────────────────────────────────────────────────────
     async function runMultiStepFlow() {
         busy = true; btn.remove();
         show('Đang kết nối...', 'loading');
@@ -408,19 +435,19 @@
             const hintHtml = !unlocked ? `
                 <div class="${ucls('hintbox')}">
                     <div class="${ucls('hicon')}">🎁</div>
-                    <div class="${ucls('htitle')}">Bước 1 hoàn thành rồi!</div>
+                    <div class="${ucls('htitle')}">Bước đầu hoàn thành!</div>
                     <div class="${ucls('hdesc')}">
-                        Khám phá thêm một trang bất kỳ trên website —<br>
-                        mã khuyến mãi sẽ sẵn sàng ngay khi bạn quay lại.
+                        Nếu muốn, bạn có thể ghé xem thêm một trang khác trên website —<br>
+                        mã sẽ sẵn sàng khi bạn quay lại đây.
                     </div>
-                    <span class="${ucls('hbadge')}">✨ Chỉ còn 1 bước nữa thôi</span>
+                    <span class="${ucls('hbadge')}">✨ Chỉ còn 1 bước nữa</span>
                 </div>
             ` : `
                 <div class="${ucls('hintbox')}" style="background:#e8f5e9;border-color:#43a047;">
                     <div class="${ucls('hicon')}">🎉</div>
-                    <div class="${ucls('htitle')}" style="color:#2e7d32;">Tuyệt vời! Bạn đã sẵn sàng.</div>
+                    <div class="${ucls('htitle')}" style="color:#2e7d32;">Sẵn sàng rồi!</div>
                     <div class="${ucls('hdesc')}" style="color:#33691e;">
-                        Nhấn nút bên dưới để nhận mã khuyến mãi của bạn ngay nhé!
+                        Nhấn nút bên dưới để nhận mã của bạn.
                     </div>
                 </div>
                 <button class="${ucls('nextbtn')}" id="${nid}">🎁 Nhận mã ngay</button>
@@ -481,14 +508,12 @@
     // ════════════════════════════════════════════════════════════════════════
     let busy = false;
 
-    // 1. Resume session cũ nếu có
     const pending = loadState();
     if (pending && pending.hostname === hostname) {
         handleResume(pending);
         return;
     }
 
-    // 2. Kiểm tra referrer — chỉ cho phép từ Google
     if (!isFromGoogle()) {
         btn.remove();
         show(`
@@ -504,7 +529,6 @@
         return;
     }
 
-    // 3. Hoạt động bình thường
     btn.addEventListener('click', () => {
         if (busy) return;
         if (activeStepCfg.max_steps === 1) runSimpleFlow();
