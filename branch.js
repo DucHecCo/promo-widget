@@ -202,8 +202,8 @@
             background:#fafafa;border:1px solid #e0e0e0;border-radius:10px;
             padding:16px;text-align:center;
         }
-        .${ucls('nrtitle')}{font-size:13.5px;font-weight:700;color:#424242;margin-bottom:6px;}
-        .${ucls('nrdesc')} {font-size:12.5px;line-height:1.7;color:#757575;}
+        .${ucls('nrtitle')}{font-size:13px;font-weight:600;color:#616161;margin-bottom:6px;}
+        .${ucls('nrdesc')} {font-size:12.5px;line-height:1.7;color:#9e9e9e;}
     </style>`);
 
     const widget = document.createElement('div');
@@ -269,7 +269,7 @@
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
                 show(`${dots}
-                    <div style="font-size:13px;margin-bottom:10px;color:#616161;text-align:center;">${hint}</div>
+                    <div style="font-size:13px;margin-bottom:10px;color:#757575;text-align:center;">${hint}</div>
                     <div style="text-align:center;">
                         <span class="${ucls('timer')}">${r}s</span>
                     </div>
@@ -339,6 +339,7 @@
         );
     }
 
+    // ─── Flow 1 bước — KHÔNG kiểm tra referrer ở đây nữa ───────────────────
     async function runSimpleFlow() {
         busy = true; btn.remove();
         show('Đang kết nối...', 'loading');
@@ -368,6 +369,7 @@
         );
     }
 
+    // ─── Flow nhiều bước — KHÔNG kiểm tra referrer ở đây nữa ───────────────
     async function runMultiStepFlow() {
         busy = true; btn.remove();
         show('Đang kết nối...', 'loading');
@@ -485,6 +487,9 @@
         else { clearState(); busy = false; }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // KHỞI ĐỘNG — chỉ kiểm tra referrer tại đây (bước 1), không ở nơi nào khác
+    // ════════════════════════════════════════════════════════════════════════
     let busy = false;
 
     const pending = loadState();
@@ -493,26 +498,24 @@
         return;
     }
 
-    // Chỉ hiển thị nút, KHÔNG hiển thị gì thêm khi chưa nhấn
-    if (!isFromGoogle()) {
-        btn.addEventListener('click', () => {
-            if (busy) return;
+    btn.addEventListener('click', () => {
+        if (busy) return;
+
+        // Kiểm tra referrer chỉ khi người dùng nhấn nút lần đầu (bước 1)
+        if (!isFromGoogle()) {
             busy = true; btn.remove();
             show(`
                 <div class="${ucls('norefer')}">
-                    <div class="${ucls('nrtitle')}">Không thể lấy mã</div>
+                    <div class="${ucls('nrtitle')}">Mã khuyến mãi dành cho khách từ Google</div>
                     <div class="${ucls('nrdesc')}">
-                        Bạn cần tìm kiếm website trên Google và nhấp vào kết quả<br>
-                        để có thể lấy mã khuyến mãi.
+                        Chương trình này áp dụng cho khách truy cập qua kết quả tìm kiếm Google.<br>
+                        Bạn có thể tìm lại trang web qua Google để tham gia nhé.
                     </div>
                 </div>
             `, 'wait');
-        });
-        return;
-    }
+            return;
+        }
 
-    btn.addEventListener('click', () => {
-        if (busy) return;
         if (activeStepCfg.max_steps === 1) runSimpleFlow();
         else runMultiStepFlow();
     });
