@@ -32,8 +32,6 @@
     };
 
     const DEFAULT_PLAN    = '1step_60';
-
-    // ── KEY CỐ ĐỊNH — không dùng _p để key không đổi khi sang trang mới ──
     const CLAIM_STORE_KEY = '_mkm_session';
 
     const CFG = {
@@ -138,7 +136,6 @@
             border:1px solid transparent;
         }
         .${ucls('panel')}:empty{display:none;}
-        .${ucls('loading')} {background:#f5f5f5;border-color:#bdbdbd;color:#424242;}
         .${ucls('countdown')}{background:#fffde7;border-color:#ffe082;color:#4e342e;}
         .${ucls('wait')}    {background:#fafafa;border-color:#e0e0e0;color:#424242;}
         .${ucls('success')} {background:#f1f8e9;border-color:#aed581;color:#33691e;}
@@ -213,7 +210,8 @@
     const panel = document.getElementById(uid('panel'));
     const btn   = document.getElementById(uid('btn'));
 
-    const removeBtn = () => { if (btn && btn.parentNode) btn.parentNode.removeChild(btn); };
+    const removeBtn  = () => { if (btn && btn.parentNode) btn.parentNode.removeChild(btn); };
+    const hidePanel  = () => { panel.className = `${ucls('panel')}`; panel.innerHTML = ''; };
 
     const show = (html, type) => {
         panel.className = `${ucls('panel')} ${ucls(type)}`;
@@ -301,7 +299,7 @@
     }
 
     async function finalizeAndShow(state, stepTimestamps) {
-        show('Đang tạo mã...', 'loading');
+        hidePanel(); // ẩn panel, không hiện "Đang tạo mã..."
         const code      = await genUniqueCode();
         const claimedAt = Timestamp.now();
         const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
@@ -338,7 +336,7 @@
 
     async function runSimpleFlow() {
         busy = true; removeBtn();
-        show('Đang kết nối...', 'loading');
+        hidePanel(); // ẩn panel, không hiện "Đang kết nối..."
 
         const startedAt = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis()];
@@ -367,7 +365,7 @@
 
     async function runMultiStepFlow() {
         busy = true; removeBtn();
-        show('Đang kết nối...', 'loading');
+        hidePanel(); // ẩn panel, không hiện "Đang kết nối..."
 
         const startedAt = Timestamp.now();
         let claimRef;
@@ -489,15 +487,12 @@
     // ════════════════════════════════════════════════════════════════════════
     let busy = false;
 
-    // Nhờ CLAIM_STORE_KEY cố định, pending luôn đọc được đúng session
-    // dù script load lại ở trang mới với _p khác
     const pending = loadState();
     if (pending && pending.hostname === hostname) {
         handleResume(pending);
         return;
     }
 
-    // Chỉ gắn listener khi chưa có session — kiểm tra Google chỉ tại đây
     btn.addEventListener('click', () => {
         if (busy) return;
 
