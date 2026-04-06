@@ -32,7 +32,9 @@
     };
 
     const DEFAULT_PLAN    = '1step_60';
-    const CLAIM_STORE_KEY = '_mkm_' + _p;
+
+    // ── KEY CỐ ĐỊNH — không dùng _p để key không đổi khi sang trang mới ──
+    const CLAIM_STORE_KEY = '_mkm_session';
 
     const CFG = {
         btnLabel:   'Lấy mã khuyến mãi',
@@ -211,8 +213,7 @@
     const panel = document.getElementById(uid('panel'));
     const btn   = document.getElementById(uid('btn'));
 
-    // Helper remove btn an toàn (gọi nhiều lần cũng không lỗi)
-    const removeBtn = () => { if (btn.parentNode) btn.parentNode.removeChild(btn); };
+    const removeBtn = () => { if (btn && btn.parentNode) btn.parentNode.removeChild(btn); };
 
     const show = (html, type) => {
         panel.className = `${ucls('panel')} ${ucls(type)}`;
@@ -408,9 +409,7 @@
     }
 
     function showWaitNextPage(state) {
-        // Đảm bảo btn luôn bị ẩn khi ở trạng thái này
         removeBtn();
-
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
@@ -478,10 +477,9 @@
         );
     }
 
-    // ─── handleResume: dùng removeBtn() thay vì btn.remove() ────────────────
     function handleResume(state) {
         busy = true;
-        removeBtn(); // <-- fix chính: đảm bảo btn không còn trên DOM
+        removeBtn();
         if (state.steps_completed >= 1) showWaitNextPage(state);
         else { clearState(); busy = false; }
     }
@@ -491,20 +489,22 @@
     // ════════════════════════════════════════════════════════════════════════
     let busy = false;
 
+    // Nhờ CLAIM_STORE_KEY cố định, pending luôn đọc được đúng session
+    // dù script load lại ở trang mới với _p khác
     const pending = loadState();
     if (pending && pending.hostname === hostname) {
         handleResume(pending);
-        return; // <-- return sớm, không gắn listener nào nữa
+        return;
     }
 
+    // Chỉ gắn listener khi chưa có session — kiểm tra Google chỉ tại đây
     btn.addEventListener('click', () => {
         if (busy) return;
 
-        // Kiểm tra referrer chỉ ở bước 1 (khi nhấn nút lần đầu)
         if (!isFromGoogle()) {
             busy = true; removeBtn();
             show(`
-                <div style="padding:4px 0;font-size:13px;color:#9e9e9e;text-align:center;line-height:1.7;">
+                <div style="font-size:13px;color:#9e9e9e;text-align:center;line-height:1.7;padding:4px 0;">
                     Mã khuyến mãi dành cho khách truy cập qua Google.<br>
                     Bạn có thể tìm lại trang qua Google để tham gia nhé.
                 </div>
