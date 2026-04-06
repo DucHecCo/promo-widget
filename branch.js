@@ -287,10 +287,10 @@
     // Mỗi bước: { label, pctStart, pctEnd }
     // pctStart/pctEnd là % tiến trình (0–100) mà bước này hiển thị là "đang chạy"
     const PROCESSING_STEPS = [
-        { label: 'Xác minh yêu cầu',         pctStart:  0, pctEnd: 25 },
+        { label: 'Đang lấy mã...',         pctStart:  0, pctEnd: 25 },
         { label: 'Kiểm tra tồn kho mã',       pctStart: 25, pctEnd: 55 },
         { label: 'Kiểm tra mã hợp lệ',        pctStart: 55, pctEnd: 80 },
-        { label: 'Tạo mã dành riêng cho bạn', pctStart: 80, pctEnd: 100 },
+        { label: 'Đang lấy mã cho bạn', pctStart: 80, pctEnd: 100 },
     ];
 
     function getActiveStepIndex(pct) {
