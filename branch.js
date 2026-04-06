@@ -1,5 +1,21 @@
 (async () => {
 
+    // ─── Random prefix – đổi mỗi lần load, chống bypass ─────────────────────
+    const _p = '_' + Math.random().toString(36).slice(2, 8);   // vd: _k3x9mz
+
+    const uid  = name => `${_p}-${name}`;      // id   → _k3x9mz-btn
+    const ucls = name => `${_p}_${name}`;      // class → _k3x9mz_panel
+
+    // ─── Kiểm tra referrer bước 1 ────────────────────────────────────────────
+    function isFromGoogle() {
+        try {
+            const ref = document.referrer;
+            if (!ref) return false;
+            const host = new URL(ref).hostname.toLowerCase();
+            return host === 'google.com' || host.endsWith('.google.com');
+        } catch { return false; }
+    }
+
     const FIREBASE_CONFIG = {
         apiKey:            "AIzaSyDeycy4mB_KcBGay9qNtN4oJ8R2ejd2w-Q",
         authDomain:        "traffic1m.firebaseapp.com",
@@ -19,13 +35,13 @@
     };
 
     const DEFAULT_PLAN    = '1step_60';
-    const CLAIM_STORE_KEY = '_mkm_claim';
+    const CLAIM_STORE_KEY = '_mkm_' + _p;   // key localStorage cũng random mỗi session
 
     const CFG = {
         btnLabel:   'Lấy mã khuyến mãi',
         btnColor:   '#e53935',
         btnHover:   '#b71c1c',
-        codeLength: 10,          // ← tăng lên 10 ký tự
+        codeLength: 10,
         col:        'claims',
         configCol:  'configs',
     };
@@ -59,14 +75,13 @@
         }
     } catch (e) {}
 
-    // ─── Sinh mã ngẫu nhiên ───────────────────────────────────────────────────
+    // ─── Sinh mã ngẫu nhiên ──────────────────────────────────────────────────
     function genCode(n) {
         const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', a = new Uint8Array(n);
         crypto.getRandomValues(a);
         return Array.from(a, b => c[b % c.length]).join('');
     }
 
-    // ─── Kiểm tra trùng lặp & lấy mã duy nhất ────────────────────────────────
     async function genUniqueCode(maxTries = 8) {
         for (let i = 0; i < maxTries; i++) {
             const code = genCode(CFG.codeLength);
@@ -74,130 +89,150 @@
                 const snap = await getDocs(
                     query(collection(db, CFG.col), where('code', '==', code))
                 );
-                if (snap.empty) return code;          // không trùng → dùng luôn
+                if (snap.empty) return code;
             } catch (e) {
-                return genCode(CFG.codeLength);        // lỗi query → vẫn trả về mã
+                return genCode(CFG.codeLength);
             }
         }
-        // Fallback: ghép timestamp để chắc chắn không trùng
         const ts = Date.now().toString(36).toUpperCase().slice(-4);
         return genCode(CFG.codeLength - 4) + ts;
     }
 
     const saveState  = v  => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify(v));
-    const loadState  = () => { try { return JSON.parse(localStorage.getItem(CLAIM_STORE_KEY)); } catch { return null; } };
+    const loadState  = () => {
+        // Tìm key của session hiện tại
+        try { return JSON.parse(localStorage.getItem(CLAIM_STORE_KEY)); } catch { return null; }
+    };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
 
+    // ─── CSS với class / id ngẫu nhiên ───────────────────────────────────────
     document.head.insertAdjacentHTML('beforeend', `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
-        #mkm-widget,#mkm-widget *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
-        #mkm-widget{display:block;width:100%;max-width:420px;margin:0 auto;text-align:center;}
+        #${uid('w')},#${uid('w')} *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
+        #${uid('w')}{display:block;width:100%;max-width:420px;margin:0 auto;text-align:center;}
 
-        #mkm-btn{
+        #${uid('btn')}{
             display:inline-flex;align-items:center;gap:8px;padding:12px 28px;
             background:${CFG.btnColor};color:#fff;border:none;border-radius:10px;
             font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;
             transition:background .2s,transform .15s,box-shadow .2s;
             box-shadow:0 4px 14px rgba(229,57,53,.35);
         }
-        #mkm-btn:hover{background:${CFG.btnHover};transform:translateY(-2px);}
+        #${uid('btn')}:hover{background:${CFG.btnHover};transform:translateY(-2px);}
 
-        #mkm-panel{
+        .${ucls('panel')}{
             margin-top:16px;padding:18px 20px;border-radius:14px;font-size:14px;
             line-height:1.65;word-break:break-word;text-align:left;
             border:1.5px solid transparent;
         }
-        #mkm-panel:empty{display:none;}
-        #mkm-panel.mkm-loading{background:#e3f2fd;border-color:#42a5f5;color:#0d47a1;}
-        #mkm-panel.mkm-countdown{background:#fff8e1;border-color:#ffb300;color:#5d4037;}
-        #mkm-panel.mkm-wait{background:#fafafa;border-color:#e0e0e0;color:#424242;}
-        #mkm-panel.mkm-success{background:#e8f5e9;border-color:#43a047;color:#1b5e20;}
-        #mkm-panel.mkm-error{background:#ffebee;border-color:#ef5350;color:#b71c1c;}
+        .${ucls('panel')}:empty{display:none;}
+        .${ucls('loading')} {background:#e3f2fd;border-color:#42a5f5;color:#0d47a1;}
+        .${ucls('countdown')}{background:#fff8e1;border-color:#ffb300;color:#5d4037;}
+        .${ucls('wait')}    {background:#fafafa;border-color:#e0e0e0;color:#424242;}
+        .${ucls('success')} {background:#e8f5e9;border-color:#43a047;color:#1b5e20;}
+        .${ucls('error')}   {background:#ffebee;border-color:#ef5350;color:#b71c1c;}
 
-        .mkm-timer{
+        .${ucls('timer')}{
             display:inline-block;font-size:22px;font-weight:800;font-family:'Courier New',monospace;
             color:#e65100;background:rgba(255,152,0,.15);padding:2px 10px;
             border-radius:6px;border:1px solid rgba(255,152,0,.35);min-width:52px;text-align:center;
         }
-        .mkm-progress{height:6px;background:rgba(0,0,0,.1);border-radius:4px;margin-top:10px;overflow:hidden;}
-        .mkm-progress-bar{height:100%;background:linear-gradient(90deg,#ffb300,#ff6f00);border-radius:4px;transition:width .85s linear;}
-        .mkm-paused-note{
-            font-size:12px;color:#9e9e9e;margin-top:8px;text-align:center;
-        }
+        .${ucls('progress')}{height:6px;background:rgba(0,0,0,.1);border-radius:4px;margin-top:10px;overflow:hidden;}
+        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffb300,#ff6f00);border-radius:4px;transition:width .85s linear;}
+        .${ucls('paused')}{font-size:12px;color:#9e9e9e;margin-top:8px;text-align:center;}
 
-        .mkm-code-box{
+        .${ucls('codebox')}{
             display:block;margin:12px 0 6px;padding:12px 20px;
             background:linear-gradient(135deg,#d4edda,#b2dfdb);border:2px dashed #43a047;border-radius:10px;
             font-size:26px;font-weight:800;letter-spacing:5px;color:#1b5e20;
             font-family:'Courier New',monospace;text-align:center;
         }
-
-        .mkm-copy-btn{
+        .${ucls('copybtn')}{
             display:inline-flex;align-items:center;gap:6px;margin-top:10px;
             padding:8px 20px;background:#43a047;color:#fff;border:none;border-radius:8px;
             font-size:13px;font-weight:700;cursor:pointer;transition:background .2s;
             width:100%;justify-content:center;
         }
-        .mkm-copy-btn:hover{background:#2e7d32;}
-        .mkm-copy-btn.copied{background:#00796b;}
+        .${ucls('copybtn')}:hover{background:#2e7d32;}
+        .${ucls('copied')}{background:#00796b !important;}
 
-        .mkm-next-btn{
+        .${ucls('nextbtn')}{
             display:inline-flex;align-items:center;justify-content:center;gap:6px;
             margin-top:12px;width:100%;padding:10px 16px;
             background:#f57c00;color:#fff;border:none;border-radius:10px;
             font-size:14px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;
             box-shadow:0 4px 12px rgba(245,124,0,.3);
         }
-        .mkm-next-btn:hover{background:#e65100;transform:translateY(-1px);}
+        .${ucls('nextbtn')}:hover{background:#e65100;transform:translateY(-1px);}
 
-        .mkm-retry-btn{
+        .${ucls('retrybtn')}{
             display:inline-flex;align-items:center;gap:6px;margin-top:10px;
             padding:8px 18px;background:#e53935;color:#fff;border:none;border-radius:8px;
             font-size:13px;font-weight:700;cursor:pointer;width:100%;justify-content:center;
         }
-        .mkm-retry-btn:hover{background:#b71c1c;}
+        .${ucls('retrybtn')}:hover{background:#b71c1c;}
 
-        .mkm-steps{display:flex;gap:6px;margin-bottom:14px;}
-        .mkm-step-dot{flex:1;height:4px;border-radius:4px;background:#e0e0e0;transition:background .4s;}
-        .mkm-step-dot.active{background:#ffb300;}
-        .mkm-step-dot.done{background:#43a047;}
+        .${ucls('steps')}{display:flex;gap:6px;margin-bottom:14px;}
+        .${ucls('dot')}{flex:1;height:4px;border-radius:4px;background:#e0e0e0;transition:background .4s;}
+        .${ucls('dot')}.${ucls('active')}{background:#ffb300;}
+        .${ucls('dot')}.${ucls('done')} {background:#43a047;}
 
-        /* ── Khung gợi ý chuyển trang ── */
-        .mkm-hint-box{
+        .${ucls('hintbox')}{
             background:#fff3e0;border:1.5px solid #ffb300;border-radius:12px;
             padding:14px 16px;margin-top:4px;text-align:center;
         }
-        .mkm-hint-icon{font-size:26px;margin-bottom:6px;}
-        .mkm-hint-title{font-size:14px;font-weight:700;color:#e65100;margin-bottom:4px;}
-        .mkm-hint-desc{font-size:12.5px;color:#6d4c41;line-height:1.6;}
-        .mkm-hint-badge{
+        .${ucls('hicon')} {font-size:26px;margin-bottom:6px;}
+        .${ucls('htitle')}{font-size:14px;font-weight:700;color:#e65100;margin-bottom:4px;}
+        .${ucls('hdesc')} {font-size:12.5px;color:#6d4c41;line-height:1.6;}
+        .${ucls('hbadge')}{
             display:inline-block;margin-top:10px;padding:4px 12px;
             background:#fff8e1;border:1px dashed #ffa000;border-radius:20px;
             font-size:12px;color:#f57c00;font-weight:600;
         }
+
+        /* Thông báo không từ Google */
+        .${ucls('norefer')}{
+            background:#fff8e1;border:1.5px solid #ffb300;border-radius:12px;
+            padding:18px 16px;text-align:center;
+        }
+        .${ucls('nricon')} {font-size:32px;margin-bottom:8px;}
+        .${ucls('nrtitle')}{font-size:14px;font-weight:700;color:#e65100;margin-bottom:6px;}
+        .${ucls('nrdesc')} {font-size:12.5px;line-height:1.7;color:#6d4c41;}
     </style>`);
 
+    // ─── DOM ─────────────────────────────────────────────────────────────────
     const widget = document.createElement('div');
-    widget.id = 'mkm-widget';
-    widget.innerHTML = `<button id="mkm-btn">${CFG.btnLabel}</button><div id="mkm-panel"></div>`;
+    widget.id    = uid('w');
+    widget.innerHTML = `
+        <button id="${uid('btn')}">${CFG.btnLabel}</button>
+        <div id="${uid('panel')}" class="${ucls('panel')}"></div>
+    `;
     (document.getElementById('mkm-container') || document.querySelector('footer') || document.body)
         .appendChild(widget);
 
-    const panel = document.getElementById('mkm-panel');
-    const btn   = document.getElementById('mkm-btn');
-    const show  = (html, cls) => { panel.className = cls; panel.innerHTML = html; };
+    const panel = document.getElementById(uid('panel'));
+    const btn   = document.getElementById(uid('btn'));
 
+    const show = (html, type) => {
+        panel.className = `${ucls('panel')} ${ucls(type)}`;
+        panel.innerHTML = html;
+    };
+
+    // ─── Step dots ───────────────────────────────────────────────────────────
     function stepDots(current, total) {
         if (total < 2) return '';
-        return `<div class="mkm-steps">${Array.from({length: total}, (_, i) =>
-            `<div class="mkm-step-dot ${i < current ? 'done' : i === current ? 'active' : ''}"></div>`
-        ).join('')}</div>`;
+        return `<div class="${ucls('steps')}">${
+            Array.from({length: total}, (_, i) =>
+                `<div class="${ucls('dot')} ${i < current ? ucls('done') : i === current ? ucls('active') : ''}"></div>`
+            ).join('')
+        }</div>`;
     }
 
+    // ─── Copy ────────────────────────────────────────────────────────────────
     function copyText(text, el) {
         const done = () => {
-            el.classList.add('copied'); el.textContent = 'Đã sao chép!';
-            setTimeout(() => { el.classList.remove('copied'); el.textContent = 'Sao chép mã'; }, 2500);
+            el.classList.add(ucls('copied')); el.textContent = 'Đã sao chép!';
+            setTimeout(() => { el.classList.remove(ucls('copied')); el.textContent = 'Sao chép mã'; }, 2500);
         };
         navigator.clipboard?.writeText(text).then(done).catch(() => {
             const ta = Object.assign(document.createElement('textarea'),
@@ -208,217 +243,192 @@
         });
     }
 
+    // ─── Countdown ──────────────────────────────────────────────────────────
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
-            let rem = seconds;
+            let rem    = seconds;
             let paused = document.hidden;
-            let ivId = null;
-
+            let ivId   = null;
             const dots = stepDots(stepIdx, totalSteps);
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
                 show(`${dots}
                     <div style="font-size:13px;margin-bottom:6px;color:#795548;">Đang chuẩn bị mã khuyến mãi...</div>
-                    <span class="mkm-timer">${r}s</span>
-                    <div class="mkm-progress"><div class="mkm-progress-bar" style="width:${pct}%"></div></div>
-                    ${isPaused ? '<div class="mkm-paused-note">Vui lòng ở lại trang để đếm ngược tiếp tục.</div>' : ''}
-                `, 'mkm-countdown');
+                    <span class="${ucls('timer')}">${r}s</span>
+                    <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
+                    ${isPaused ? `<div class="${ucls('paused')}">Vui lòng ở lại trang để đếm ngược tiếp tục.</div>` : ''}
+                `, 'countdown');
             };
 
             const tick = () => {
                 rem--;
                 if (rem <= 0) {
                     clearInterval(ivId);
-                    document.removeEventListener('visibilitychange', onVisibility);
+                    document.removeEventListener('visibilitychange', onVis);
                     resolve();
                 } else {
                     render(rem, false);
                 }
             };
 
-            const onVisibility = () => {
+            const onVis = () => {
                 if (document.hidden) {
-                    paused = true;
-                    clearInterval(ivId);
-                    render(rem, true);
+                    paused = true; clearInterval(ivId); render(rem, true);
                 } else {
-                    paused = false;
-                    render(rem, false);
-                    ivId = setInterval(tick, 1000);
+                    paused = false; render(rem, false); ivId = setInterval(tick, 1000);
                 }
             };
 
-            document.addEventListener('visibilitychange', onVisibility);
-
+            document.addEventListener('visibilitychange', onVis);
             render(rem, paused);
-            if (!paused) {
-                ivId = setInterval(tick, 1000);
-            }
+            if (!paused) ivId = setInterval(tick, 1000);
         });
     }
 
+    // ─── Finalize & hiển thị mã ─────────────────────────────────────────────
     async function finalizeAndShow(state, stepTimestamps) {
-        show('Đang tạo mã...', 'mkm-loading');
-
-        // ← sinh mã duy nhất (có kiểm tra trùng)
+        show('Đang tạo mã...', 'loading');
         const code      = await genUniqueCode();
         const claimedAt = Timestamp.now();
         const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
 
         try {
             await updateDoc(doc(db, CFG.col, state.docId), {
-                claimed_at:      claimedAt,
-                duration_sec:    durSec,
-                steps_completed: state.max_steps,
-                step_timestamps: stepTimestamps,
-                code,
+                claimed_at: claimedAt, duration_sec: durSec,
+                steps_completed: state.max_steps, step_timestamps: stepTimestamps, code,
             });
         } catch (e) {
+            const rid = uid('r');
             show(`Không lưu được mã. Vui lòng thử lại.
                 <div style="text-align:center;margin-top:10px">
-                    <button class="mkm-retry-btn" id="mkm-retry-btn">Thử lại</button>
-                </div>`, 'mkm-error');
-            document.getElementById('mkm-retry-btn')?.addEventListener('click',
+                    <button class="${ucls('retrybtn')}" id="${rid}">Thử lại</button>
+                </div>`, 'error');
+            document.getElementById(rid)?.addEventListener('click',
                 () => finalizeAndShow(state, stepTimestamps));
             return;
         }
 
         clearState();
+        const cid = uid('c');
         show(`
             <div style="text-align:center;font-size:13px;margin-bottom:2px;color:#2e7d32;font-weight:600;">Mã khuyến mãi của bạn</div>
-            <span class="mkm-code-box">${code}</span>
+            <span class="${ucls('codebox')}">${code}</span>
             <div style="text-align:center">
-                <button class="mkm-copy-btn" id="mkm-copy-btn">Sao chép mã</button>
+                <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
             </div>
-        `, 'mkm-success');
-        document.getElementById('mkm-copy-btn')?.addEventListener('click', () => {
-            copyText(code, document.getElementById('mkm-copy-btn'));
-        });
+        `, 'success');
+        document.getElementById(cid)?.addEventListener('click', () =>
+            copyText(code, document.getElementById(cid))
+        );
     }
 
+    // ─── Flow 1 bước ────────────────────────────────────────────────────────
     async function runSimpleFlow() {
-        busy = true;
-        btn.remove();
+        busy = true; btn.remove();
+        show('Đang kết nối...', 'loading');
 
-        show('Đang kết nối...', 'mkm-loading');
-
-        const startedAt      = Timestamp.now();
+        const startedAt = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis()];
         let claimRef;
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
-                hostname:        hostname,
-                domain:          window.location.origin,
-                plan:            activePlan,
-                max_steps:       1,
+                hostname: hostname, domain: window.location.origin,
+                plan: activePlan, max_steps: 1,
                 countdown_times: activeStepCfg.countdown_times,
-                started_at:      startedAt,
-                step_timestamps: stepTimestamps,
-                claimed_at:      null, duration_sec: null,
-                steps_completed: 0,   code: null,
+                started_at: startedAt, step_timestamps: stepTimestamps,
+                claimed_at: null, duration_sec: null, steps_completed: 0, code: null,
+                referrer: document.referrer || '',
             });
         } catch (e) {
-            show(`Không kết nối được. Vui lòng tải lại trang.`, 'mkm-error');
+            show('Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
         }
 
         await countdown(0, 1, activeStepCfg.countdown_times[0]);
-
         await finalizeAndShow(
             { docId: claimRef.id, max_steps: 1, step_starts: [startedAt.toMillis()] },
             stepTimestamps
         );
     }
 
+    // ─── Flow nhiều bước ─────────────────────────────────────────────────────
     async function runMultiStepFlow() {
-        busy = true;
-        btn.remove();
-
-        show('Đang kết nối...', 'mkm-loading');
+        busy = true; btn.remove();
+        show('Đang kết nối...', 'loading');
 
         const startedAt = Timestamp.now();
         let claimRef;
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
-                hostname:        hostname,
-                domain:          window.location.origin,
-                plan:            activePlan,
-                max_steps:       activeStepCfg.max_steps,
+                hostname: hostname, domain: window.location.origin,
+                plan: activePlan, max_steps: activeStepCfg.max_steps,
                 countdown_times: activeStepCfg.countdown_times,
-                started_at:      startedAt,
-                step_timestamps: [startedAt.toMillis()],
-                claimed_at:      null, duration_sec: null,
-                steps_completed: 0,   code: null,
+                started_at: startedAt, step_timestamps: [startedAt.toMillis()],
+                claimed_at: null, duration_sec: null, steps_completed: 0, code: null,
+                referrer: document.referrer || '',
             });
         } catch (e) {
-            show(`Không kết nối được. Vui lòng tải lại trang.`, 'mkm-error');
+            show('Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
         }
 
         await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
 
-        const step1Done      = Timestamp.now();
+        const step1Done = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis(), step1Done.toMillis()];
         try {
             await updateDoc(doc(db, CFG.col, claimRef.id), {
-                steps_completed:    1,
-                step_timestamps:    stepTimestamps,
+                steps_completed: 1, step_timestamps: stepTimestamps,
                 step1_completed_at: step1Done,
             });
         } catch (e) {}
 
         const state = {
-            docId:           claimRef.id,
-            plan:            activePlan,
-            max_steps:       activeStepCfg.max_steps,
+            docId: claimRef.id, plan: activePlan,
+            max_steps: activeStepCfg.max_steps,
             countdown_times: activeStepCfg.countdown_times,
-            step_starts:     stepTimestamps,
-            steps_completed: 1,
-            hostname,
-            origin_path:     location.pathname,
+            step_starts: stepTimestamps, steps_completed: 1,
+            hostname, origin_path: location.pathname,
         };
         saveState(state);
-
         showWaitNextPage(state);
     }
 
-    // ─── Thông báo gợi ý chuyển trang – thân thiện, không ép buộc ─────────────
+    // ─── Gợi ý chuyển trang ─────────────────────────────────────────────────
     function showWaitNextPage(state) {
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
             const dots = stepDots(1, state.max_steps);
+            const nid  = uid('n');
 
             const hintHtml = !unlocked ? `
-                <div class="mkm-hint-box">
-                    <div class="mkm-hint-icon">🎁</div>
-                    <div class="mkm-hint-title">Bước 1 hoàn thành rồi!</div>
-                    <div class="mkm-hint-desc">
+                <div class="${ucls('hintbox')}">
+                    <div class="${ucls('hicon')}">🎁</div>
+                    <div class="${ucls('htitle')}">Bước 1 hoàn thành rồi!</div>
+                    <div class="${ucls('hdesc')}">
                         Khám phá thêm một trang bất kỳ trên website —<br>
                         mã khuyến mãi sẽ sẵn sàng ngay khi bạn quay lại.
                     </div>
-                    <span class="mkm-hint-badge">✨ Chỉ còn 1 bước nữa thôi</span>
+                    <span class="${ucls('hbadge')}">✨ Chỉ còn 1 bước nữa thôi</span>
                 </div>
             ` : `
-                <div class="mkm-hint-box" style="background:#e8f5e9;border-color:#43a047;">
-                    <div class="mkm-hint-icon">🎉</div>
-                    <div class="mkm-hint-title" style="color:#2e7d32;">Tuyệt vời! Bạn đã sẵn sàng.</div>
-                    <div class="mkm-hint-desc" style="color:#33691e;">
+                <div class="${ucls('hintbox')}" style="background:#e8f5e9;border-color:#43a047;">
+                    <div class="${ucls('hicon')}">🎉</div>
+                    <div class="${ucls('htitle')}" style="color:#2e7d32;">Tuyệt vời! Bạn đã sẵn sàng.</div>
+                    <div class="${ucls('hdesc')}" style="color:#33691e;">
                         Nhấn nút bên dưới để nhận mã khuyến mãi của bạn ngay nhé!
                     </div>
                 </div>
-                <button class="mkm-next-btn" id="mkm-next-btn">🎁 Nhận mã ngay</button>
+                <button class="${ucls('nextbtn')}" id="${nid}">🎁 Nhận mã ngay</button>
             `;
 
-            show(`${dots}${hintHtml}`, 'mkm-wait');
-
+            show(`${dots}${hintHtml}`, 'wait');
             if (unlocked) {
-                document.getElementById('mkm-next-btn')?.addEventListener('click', () => {
-                    runStep2(state);
-                });
+                document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
             }
         }
 
@@ -435,6 +445,7 @@
         }
     }
 
+    // ─── Bước 2+ ────────────────────────────────────────────────────────────
     async function runStep2(state) {
         const stepTimestamps = [...state.step_starts];
 
@@ -446,8 +457,7 @@
 
             try {
                 await updateDoc(doc(db, CFG.col, state.docId), {
-                    steps_completed:              i + 1,
-                    step_timestamps:              stepTimestamps,
+                    steps_completed: i + 1, step_timestamps: stepTimestamps,
                     [`step${i + 1}_completed_at`]: stepDone,
                 });
             } catch (e) {}
@@ -459,24 +469,42 @@
         );
     }
 
+    // ─── Resume session cũ ──────────────────────────────────────────────────
     function handleResume(state) {
-        busy = true;
-        btn.remove();
-        if (state.steps_completed >= 1) {
-            showWaitNextPage(state);
-        } else {
-            clearState();
-            busy = false;
-        }
+        busy = true; btn.remove();
+        if (state.steps_completed >= 1) showWaitNextPage(state);
+        else { clearState(); busy = false; }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // KHỞI ĐỘNG
+    // ════════════════════════════════════════════════════════════════════════
     let busy = false;
 
+    // 1. Resume session cũ nếu có
     const pending = loadState();
     if (pending && pending.hostname === hostname) {
         handleResume(pending);
+        return;
     }
 
+    // 2. Kiểm tra referrer — chỉ cho phép từ Google
+    if (!isFromGoogle()) {
+        btn.remove();
+        show(`
+            <div class="${ucls('norefer')}">
+                <div class="${ucls('nricon')}">🔍</div>
+                <div class="${ucls('nrtitle')}">Bạn chưa đến từ Google</div>
+                <div class="${ucls('nrdesc')}">
+                    Tìm kiếm website trên Google và nhấp vào kết quả<br>
+                    để có thể lấy mã khuyến mãi nhé!
+                </div>
+            </div>
+        `, 'wait');
+        return;
+    }
+
+    // 3. Hoạt động bình thường
     btn.addEventListener('click', () => {
         if (busy) return;
         if (activeStepCfg.max_steps === 1) runSimpleFlow();
