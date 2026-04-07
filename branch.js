@@ -5,7 +5,7 @@
     const ucls = name => `${_p}_${name}`;
 
     function getStaticCode() {
-        return 'XINCHAONGUOIMOI';
+        return 'XINCHAO2026';
     }
 
     function isFromGoogle() {
@@ -135,20 +135,20 @@
     document.head.insertAdjacentHTML('beforeend', `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
         #${uid('w')},#${uid('w')} *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
-        #${uid('w')}{display:block;width:100%;max-width:420px;margin:0 auto;text-align:center;}
+        #${uid('w')}{display:block;width:100%;max-width:340px;margin:0 auto;text-align:center;}
 
         #${uid('btn')}{
-            display:inline-flex;align-items:center;gap:8px;padding:12px 28px;
-            background:${CFG.btnColor};color:#fff;border:none;border-radius:10px;
-            font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;
+            display:inline-flex;align-items:center;gap:5px;padding:8px 18px;
+            background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
+            font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none;
             transition:background .2s,transform .15s,box-shadow .2s;
-            box-shadow:0 4px 14px rgba(229,57,53,.35);
+            box-shadow:0 3px 10px rgba(229,57,53,.30);
         }
         #${uid('btn')}:hover{background:${CFG.btnHover};transform:translateY(-2px);}
 
         .${ucls('panel')}{
-            margin-top:16px;padding:16px 18px;border-radius:10px;font-size:13.5px;
-            line-height:1.6;word-break:break-word;text-align:left;
+            margin-top:10px;padding:10px 12px;border-radius:7px;font-size:11.5px;
+            line-height:1.5;word-break:break-word;text-align:left;
             border:1px solid transparent;
         }
         .${ucls('panel')}:empty{display:none;}
@@ -158,20 +158,20 @@
         .${ucls('error')}   {background:#fafafa;border-color:#ef9a9a;color:#c62828;}
 
         .${ucls('timer')}{
-            display:inline-block;font-size:22px;font-weight:800;font-family:'Courier New',monospace;
-            color:#bf360c;background:#fff8f5;padding:2px 10px;
-            border-radius:6px;border:1px solid #ffccbc;min-width:52px;text-align:center;
+            display:inline-block;font-size:18px;font-weight:800;font-family:'Courier New',monospace;
+            color:#bf360c;background:#fff8f5;padding:2px 8px;
+            border-radius:5px;border:1px solid #ffccbc;min-width:44px;text-align:center;
         }
-        .${ucls('progress')}{height:4px;background:#eeeeee;border-radius:4px;margin-top:10px;overflow:hidden;}
-        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:4px;transition:width .85s linear;}
-        .${ucls('paused')}{font-size:12px;color:#9e9e9e;margin-top:8px;text-align:center;}
+        .${ucls('progress')}{height:3px;background:#eeeeee;border-radius:3px;margin-top:8px;overflow:hidden;}
+        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:3px;transition:width .85s linear;}
+        .${ucls('paused')}{font-size:10px;color:#9e9e9e;margin-top:6px;text-align:center;}
 
         .${ucls('steps-list')}{
-            list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;
+            list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;
         }
         .${ucls('step-item')}{
-            display:flex;align-items:center;gap:8px;font-size:12.5px;
-            padding:6px 10px;border-radius:7px;background:#fff9f0;
+            display:flex;align-items:center;gap:6px;font-size:10.5px;
+            padding:4px 8px;border-radius:5px;background:#fff9f0;
             border:1px solid #ffe0b2;color:#6d4c00;transition:all .3s;
         }
         .${ucls('step-item')}.${ucls('step-done')}{
@@ -180,46 +180,46 @@
         .${ucls('step-item')}.${ucls('step-active')}{
             background:#fff3e0;border-color:#ffa726;color:#4e2400;font-weight:700;
         }
-        .${ucls('step-icon')}{font-size:13px;min-width:16px;text-align:center;}
+        .${ucls('step-icon')}{font-size:11px;min-width:14px;text-align:center;}
 
         .${ucls('codebox')}{
-            display:block;margin:12px 0 6px;padding:12px 20px;
-            background:#f9fbe7;border:1.5px dashed #aed581;border-radius:8px;
-            font-size:26px;font-weight:800;letter-spacing:5px;color:#33691e;
+            display:block;margin:8px 0 4px;padding:8px 14px;
+            background:#f9fbe7;border:1.5px dashed #aed581;border-radius:6px;
+            font-size:20px;font-weight:800;letter-spacing:4px;color:#33691e;
             font-family:'Courier New',monospace;text-align:center;
         }
         .${ucls('copybtn')}{
-            display:inline-flex;align-items:center;gap:6px;margin-top:10px;
-            padding:8px 20px;background:#558b2f;color:#fff;border:none;border-radius:8px;
-            font-size:13px;font-weight:700;cursor:pointer;transition:background .2s;
+            display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+            padding:6px 14px;background:#558b2f;color:#fff;border:none;border-radius:6px;
+            font-size:11px;font-weight:700;cursor:pointer;transition:background .2s;
             width:100%;justify-content:center;
         }
         .${ucls('copybtn')}:hover{background:#33691e;}
         .${ucls('copied')}{background:#00695c !important;}
 
         .${ucls('nextbtn')}{
-            display:inline-flex;align-items:center;justify-content:center;gap:6px;
-            margin-top:12px;width:100%;padding:10px 16px;
-            background:#ef6c00;color:#fff;border:none;border-radius:8px;
-            font-size:14px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;
+            display:inline-flex;align-items:center;justify-content:center;gap:5px;
+            margin-top:8px;width:100%;padding:7px 12px;
+            background:#ef6c00;color:#fff;border:none;border-radius:6px;
+            font-size:11.5px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;
         }
         .${ucls('nextbtn')}:hover{background:#e65100;transform:translateY(-1px);}
 
         .${ucls('retrybtn')}{
-            display:inline-flex;align-items:center;gap:6px;margin-top:10px;
-            padding:8px 18px;background:#e53935;color:#fff;border:none;border-radius:8px;
-            font-size:13px;font-weight:700;cursor:pointer;width:100%;justify-content:center;
+            display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+            padding:6px 14px;background:#e53935;color:#fff;border:none;border-radius:6px;
+            font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;
         }
         .${ucls('retrybtn')}:hover{background:#b71c1c;}
 
-        .${ucls('dots')}{display:flex;gap:6px;margin-bottom:14px;}
-        .${ucls('dot')}{flex:1;height:3px;border-radius:4px;background:#e0e0e0;transition:background .4s;}
+        .${ucls('dots')}{display:flex;gap:5px;margin-bottom:10px;}
+        .${ucls('dot')}{flex:1;height:2px;border-radius:3px;background:#e0e0e0;transition:background .4s;}
         .${ucls('dot')}.${ucls('active')}{background:#ffa726;}
         .${ucls('dot')}.${ucls('done')} {background:#aed581;}
 
         @keyframes ${ucls('spin')}{to{transform:rotate(360deg)}}
         .${ucls('spinner')}{
-            display:inline-block;width:12px;height:12px;
+            display:inline-block;width:10px;height:10px;
             border:2px solid #ffa726;border-top-color:transparent;
             border-radius:50%;animation:${ucls('spin')} .7s linear infinite;
             vertical-align:middle;
@@ -249,7 +249,7 @@
     function showCodeUI(code) {
         const cid = uid('c');
         show(`
-            <div style="text-align:center;font-size:13px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã khuyến mãi của bạn</div>
+            <div style="text-align:center;font-size:11px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã khuyến mãi của bạn</div>
             <span class="${ucls('codebox')}">${code}</span>
             <div style="text-align:center">
                 <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
@@ -283,9 +283,6 @@
         });
     }
 
-    // Các bước xử lý có lý do thật, phân bổ theo % thời gian đếm ngược
-    // Mỗi bước: { label, pctStart, pctEnd }
-    // pctStart/pctEnd là % tiến trình (0–100) mà bước này hiển thị là "đang chạy"
     const PROCESSING_STEPS = [
         { label: 'Đang lấy mã...',         pctStart:  0, pctEnd: 25 },
         { label: 'Kiểm tra tồn kho mã',       pctStart: 25, pctEnd: 55 },
@@ -294,7 +291,6 @@
     ];
 
     function getActiveStepIndex(pct) {
-        // Bước đang active là bước đầu tiên chưa hoàn thành (pctEnd > pct)
         for (let i = 0; i < PROCESSING_STEPS.length; i++) {
             if (pct < PROCESSING_STEPS[i].pctEnd) return i;
         }
@@ -331,7 +327,7 @@
                 const pct = Math.round((1 - r / seconds) * 100);
                 show(`${dots}
                     ${renderStepList(pct)}
-                    <div style="margin-top:10px;">
+                    <div style="margin-top:8px;">
                         <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
                     </div>
                     ${isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : ''}
@@ -377,7 +373,7 @@
         } catch (e) {
             const rid = uid('r');
             show(`Không lưu được mã. Vui lòng thử lại.
-                <div style="text-align:center;margin-top:10px">
+                <div style="text-align:center;margin-top:8px">
                     <button class="${ucls('retrybtn')}" id="${rid}">Thử lại</button>
                 </div>`, 'error');
             document.getElementById(rid)?.addEventListener('click',
@@ -471,11 +467,11 @@
             const nid  = uid('n');
 
             const hintHtml = !unlocked ? `
-                <div style="text-align:center;font-size:13.5px;color:#757575;padding:8px 0;">
+                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
                     Nếu bạn muốn hãy truy cập trang khác trên trang lấy mã giá trị có giá trị tốt hơn nhé !
                 </div>
             ` : `
-                <div style="text-align:center;font-size:13.5px;color:#757575;padding:8px 0;">
+                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
                     Nếu bạn muốn hãy truy cập trang khác trên trang lấy mã giá trị có giá trị tốt hơn nhé !
                 </div>
                 <button class="${ucls('nextbtn')}" id="${nid}">Nhận mã ngay</button>
