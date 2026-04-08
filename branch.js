@@ -132,19 +132,171 @@
     };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
 
+    const PLACEMENT_STYLES = {
+        hero: {
+            wrapper: `
+                display:block;width:100%;max-width:420px;
+                margin:18px auto 0;text-align:center;
+            `,
+            btnExtra: `
+                padding:13px 32px;font-size:15px;border-radius:10px;
+                box-shadow:0 5px 20px rgba(229,57,53,.40);
+                letter-spacing:.3px;
+            `,
+        },
+        inline: {
+            wrapper: `
+                display:block;width:100%;max-width:380px;
+                margin:20px auto;text-align:center;
+                border-top:1px dashed #ffcc80;padding-top:16px;
+            `,
+            btnExtra: `
+                padding:9px 22px;font-size:13px;border-radius:8px;
+            `,
+        },
+        footer: {
+            wrapper: `
+                display:block;width:100%;max-width:320px;
+                margin:12px auto 0;text-align:center;opacity:.85;
+            `,
+            btnExtra: `
+                padding:7px 16px;font-size:11.5px;border-radius:6px;
+                box-shadow:none;background:#b71c1c;
+            `,
+        },
+    };
+
+    function findHeroAnchor() {
+        const explicit = document.querySelector(
+            '#mkm-hero, .hero, [class*="hero"], [id*="hero"], ' +
+            '.banner, [class*="banner"], header'
+        );
+        if (explicit) return { el: explicit, position: 'afterend' };
+        const h1 = document.querySelector('h1');
+        if (h1) {
+            const parent = h1.closest('section, article, div') || h1.parentElement;
+            return { el: parent || h1, position: 'afterend' };
+        }
+        return null;
+    }
+
+    function findInlineAnchors() {
+        const heroAnchor = findHeroAnchor();
+        const heroBound  = heroAnchor
+            ? heroAnchor.el.getBoundingClientRect().bottom + window.scrollY
+            : window.innerHeight;
+
+        return [
+            ...document.querySelectorAll(
+                'article p, .post-content p, .entry-content p, ' +
+                'main p, #content p, .content p, ' +
+                'section h2, section h3, article h2, article h3'
+            )
+        ].filter(el => {
+            const top = el.getBoundingClientRect().top + window.scrollY;
+            return top > heroBound + 80 && el.textContent.trim().length > 40;
+        });
+    }
+
+    function findFooterAnchor() {
+        return (
+            document.getElementById('mkm-footer') ||
+            document.querySelector('footer') ||
+            document.querySelector('[class*="footer"]') ||
+            document.querySelector('[id*="footer"]')
+        );
+    }
+
+    function createWidgetEl(placement) {
+        const wid    = uid('w_' + placement + '_' + Math.random().toString(36).slice(2, 5));
+        const bid    = uid('b_' + placement + '_' + Math.random().toString(36).slice(2, 5));
+        const pid    = uid('p_' + placement + '_' + Math.random().toString(36).slice(2, 5));
+        const styles = PLACEMENT_STYLES[placement] || PLACEMENT_STYLES.inline;
+
+        const wrap = document.createElement('div');
+        wrap.id = wid;
+        wrap.style.cssText = styles.wrapper;
+        wrap.innerHTML = `
+            <button id="${bid}" style="${styles.btnExtra}">${CFG.btnLabel}</button>
+            <div id="${pid}" class="${ucls('panel')}"></div>
+        `;
+
+        return { wrapEl: wrap, btnId: bid, panelId: pid };
+    }
+
+    const allWidgets = [];
+
+    function insertWidget(placement, anchor, position = 'afterend') {
+        const { wrapEl, btnId, panelId } = createWidgetEl(placement);
+        try {
+            if (position === 'afterend') {
+                anchor.insertAdjacentElement('afterend', wrapEl);
+            } else if (position === 'beforeend') {
+                anchor.appendChild(wrapEl);
+            } else if (position === 'afterbegin') {
+                anchor.insertAdjacentElement('afterbegin', wrapEl);
+            } else {
+                anchor.insertAdjacentElement('afterend', wrapEl);
+            }
+        } catch (e) {
+            document.body.appendChild(wrapEl);
+        }
+
+        const btnEl   = document.getElementById(btnId);
+        const panelEl = document.getElementById(panelId);
+        if (!btnEl || !panelEl) return null;
+
+        const entry = { placement, wrapEl, btnEl, panelEl };
+        allWidgets.push(entry);
+        return entry;
+    }
+
+    function setupPlacements() {
+        const candidates = [];
+
+        const heroAnchor = findHeroAnchor();
+        if (heroAnchor) {
+            candidates.push(() => insertWidget('hero', heroAnchor.el, heroAnchor.position));
+        }
+
+        const inlineCandidates = findInlineAnchors();
+        if (inlineCandidates.length > 0) {
+            const pick = inlineCandidates[Math.floor(Math.random() * inlineCandidates.length)];
+            candidates.push(() => insertWidget('inline', pick, 'afterend'));
+        }
+
+        const footerEl = findFooterAnchor();
+        if (footerEl) {
+            candidates.push(() => insertWidget('footer', footerEl, 'afterbegin'));
+        }
+
+        const explicit = document.getElementById('mkm-container');
+        if (explicit) {
+            candidates.push(() => insertWidget('inline', explicit, 'beforeend'));
+        }
+
+        if (candidates.length > 0) {
+            const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+            chosen();
+        }
+    }
+
+    setupPlacements();
+
     document.head.insertAdjacentHTML('beforeend', `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
-        #${uid('w')},#${uid('w')} *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
-        #${uid('w')}{display:block;width:100%;max-width:340px;margin:0 auto;text-align:center;}
 
-        #${uid('btn')}{
-            display:inline-flex;align-items:center;gap:5px;padding:8px 18px;
-            background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
-            font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none;
+        [id^="${_p}-w_"],[id^="${_p}-w_"] *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
+
+        [id^="${_p}-b_"]{
+            display:inline-flex;align-items:center;gap:6px;
+            background:${CFG.btnColor};color:#fff;border:none;border-radius:8px;
+            font-weight:700;cursor:pointer;-webkit-appearance:none;
             transition:background .2s,transform .15s,box-shadow .2s;
             box-shadow:0 3px 10px rgba(229,57,53,.30);
+            padding:9px 22px;font-size:13px;
         }
-        #${uid('btn')}:hover{background:${CFG.btnHover};transform:translateY(-2px);}
+        [id^="${_p}-b_"]:hover{background:${CFG.btnHover};transform:translateY(-2px);}
 
         .${ucls('panel')}{
             margin-top:10px;padding:10px 12px;border-radius:7px;font-size:11.5px;
@@ -157,11 +309,6 @@
         .${ucls('success')} {background:#f1f8e9;border-color:#aed581;color:#33691e;}
         .${ucls('error')}   {background:#fafafa;border-color:#ef9a9a;color:#c62828;}
 
-        .${ucls('timer')}{
-            display:inline-block;font-size:18px;font-weight:800;font-family:'Courier New',monospace;
-            color:#bf360c;background:#fff8f5;padding:2px 8px;
-            border-radius:5px;border:1px solid #ffccbc;min-width:44px;text-align:center;
-        }
         .${ucls('progress')}{height:3px;background:#eeeeee;border-radius:3px;margin-top:8px;overflow:hidden;}
         .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:3px;transition:width .85s linear;}
         .${ucls('paused')}{font-size:10px;color:#9e9e9e;margin-top:6px;text-align:center;}
@@ -174,12 +321,8 @@
             padding:4px 8px;border-radius:5px;background:#fff9f0;
             border:1px solid #ffe0b2;color:#6d4c00;transition:all .3s;
         }
-        .${ucls('step-item')}.${ucls('step-done')}{
-            background:#f1f8e9;border-color:#c5e1a5;color:#33691e;
-        }
-        .${ucls('step-item')}.${ucls('step-active')}{
-            background:#fff3e0;border-color:#ffa726;color:#4e2400;font-weight:700;
-        }
+        .${ucls('step-item')}.${ucls('step-done')}{background:#f1f8e9;border-color:#c5e1a5;color:#33691e;}
+        .${ucls('step-item')}.${ucls('step-active')}{background:#fff3e0;border-color:#ffa726;color:#4e2400;font-weight:700;}
         .${ucls('step-icon')}{font-size:11px;min-width:14px;text-align:center;}
 
         .${ucls('codebox')}{
@@ -226,29 +369,17 @@
         }
     </style>`);
 
-    const widget = document.createElement('div');
-    widget.id    = uid('w');
-    widget.innerHTML = `
-        <button id="${uid('btn')}">${CFG.btnLabel}</button>
-        <div id="${uid('panel')}" class="${ucls('panel')}"></div>
-    `;
-    (document.getElementById('mkm-container') || document.querySelector('footer') || document.body)
-        .appendChild(widget);
+    const removeBtn = btnEl => { if (btnEl && btnEl.parentNode) btnEl.parentNode.removeChild(btnEl); };
+    const hidePanel = panelEl => { panelEl.className = ucls('panel'); panelEl.innerHTML = ''; };
 
-    const panel = document.getElementById(uid('panel'));
-    const btn   = document.getElementById(uid('btn'));
-
-    const removeBtn = () => { if (btn && btn.parentNode) btn.parentNode.removeChild(btn); };
-    const hidePanel = () => { panel.className = `${ucls('panel')}`; panel.innerHTML = ''; };
-
-    const show = (html, type) => {
-        panel.className = `${ucls('panel')} ${ucls(type)}`;
-        panel.innerHTML = html;
+    const show = (panelEl, html, type) => {
+        panelEl.className = `${ucls('panel')} ${ucls(type)}`;
+        panelEl.innerHTML = html;
     };
 
-    function showCodeUI(code) {
+    function showCodeUI(panelEl, code) {
         const cid = uid('c');
-        show(`
+        show(panelEl, `
             <div style="text-align:center;font-size:11px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã khuyến mãi của bạn</div>
             <span class="${ucls('codebox')}">${code}</span>
             <div style="text-align:center">
@@ -258,6 +389,10 @@
         document.getElementById(cid)?.addEventListener('click', () =>
             copyText(code, document.getElementById(cid))
         );
+    }
+
+    function broadcastCodeUI(code) {
+        allWidgets.forEach(w => showCodeUI(w.panelEl, code));
     }
 
     function stepDots(current, total) {
@@ -284,10 +419,10 @@
     }
 
     const PROCESSING_STEPS = [
-        { label: 'Đang lấy mã...',         pctStart:  0, pctEnd: 25 },
-        { label: 'Kiểm tra tồn kho mã',       pctStart: 25, pctEnd: 55 },
-        { label: 'Kiểm tra mã hợp lệ',        pctStart: 55, pctEnd: 80 },
-        { label: 'Đang lấy mã cho bạn', pctStart: 80, pctEnd: 100 },
+        { label: 'Đang lấy mã...',         pctStart:  0, pctEnd: 25  },
+        { label: 'Kiểm tra tồn kho mã',    pctStart: 25, pctEnd: 55  },
+        { label: 'Kiểm tra mã hợp lệ',     pctStart: 55, pctEnd: 80  },
+        { label: 'Đang lấy mã cho bạn',    pctStart: 80, pctEnd: 100 },
     ];
 
     function getActiveStepIndex(pct) {
@@ -303,11 +438,7 @@
             const done   = pct >= s.pctEnd;
             const active = i === activeIdx;
             const cls    = done ? ucls('step-done') : active ? ucls('step-active') : '';
-            const icon   = done
-                ? '✓'
-                : active
-                    ? `<span class="${ucls('spinner')}"></span>`
-                    : '○';
+            const icon   = done ? '✓' : active ? `<span class="${ucls('spinner')}"></span>` : '○';
             return `<li class="${ucls('step-item')} ${cls}">
                 <span class="${ucls('step-icon')}">${icon}</span>
                 <span>${s.label}</span>
@@ -316,22 +447,36 @@
         return `<ul class="${ucls('steps-list')}">${items}</ul>`;
     }
 
+    function broadcastWaiting() {
+        allWidgets.forEach(w => {
+            if (w !== activeWidget) {
+                show(w.panelEl, `
+                    <div style="text-align:center;padding:8px 0;font-size:11.5px;color:#757575;">
+                        <span class="${ucls('spinner')}"></span>&nbsp; Đang xử lý, vui lòng chờ…
+                    </div>
+                `, 'wait');
+            }
+        });
+    }
+
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
             let rem    = seconds;
             let paused = document.hidden;
             let ivId   = null;
-            const dots = stepDots(stepIdx, totalSteps);
+            const dots    = stepDots(stepIdx, totalSteps);
+            const panelEl = activeWidget.panelEl;
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                show(`${dots}
+                show(panelEl, `${dots}
                     ${renderStepList(pct)}
                     <div style="margin-top:8px;">
                         <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
                     </div>
                     ${isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : ''}
                 `, 'countdown');
+                broadcastWaiting();
             };
 
             const tick = () => {
@@ -360,7 +505,7 @@
     }
 
     async function finalizeAndShow(state, stepTimestamps) {
-        hidePanel();
+        allWidgets.forEach(w => hidePanel(w.panelEl));
         const code      = await genUniqueCode();
         const claimedAt = Timestamp.now();
         const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
@@ -372,7 +517,7 @@
             });
         } catch (e) {
             const rid = uid('r');
-            show(`Không lưu được mã. Vui lòng thử lại.
+            show(activeWidget.panelEl, `Không lưu được mã. Vui lòng thử lại.
                 <div style="text-align:center;margin-top:8px">
                     <button class="${ucls('retrybtn')}" id="${rid}">Thử lại</button>
                 </div>`, 'error');
@@ -382,20 +527,21 @@
         }
 
         clearState();
-        showCodeUI(code);
+        broadcastCodeUI(code);
     }
 
     async function runSimpleFlow() {
-        busy = true; removeBtn();
-        hidePanel();
+        busy = true;
+        allWidgets.forEach(w => removeBtn(w.btnEl));
+        allWidgets.forEach(w => hidePanel(w.panelEl));
 
-        const startedAt = Timestamp.now();
+        const startedAt      = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis()];
         let claimRef;
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
-                hostname: hostname, domain: window.location.origin,
+                hostname, domain: window.location.origin,
                 plan: activePlan, max_steps: 1,
                 countdown_times: activeStepCfg.countdown_times,
                 started_at: startedAt, step_timestamps: stepTimestamps,
@@ -403,7 +549,7 @@
                 referrer: document.referrer || '',
             });
         } catch (e) {
-            show('Không kết nối được. Vui lòng tải lại trang.', 'error');
+            show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
         }
 
@@ -415,15 +561,16 @@
     }
 
     async function runMultiStepFlow() {
-        busy = true; removeBtn();
-        hidePanel();
+        busy = true;
+        allWidgets.forEach(w => removeBtn(w.btnEl));
+        allWidgets.forEach(w => hidePanel(w.panelEl));
 
         const startedAt = Timestamp.now();
         let claimRef;
 
         try {
             claimRef = await addDoc(collection(db, CFG.col), {
-                hostname: hostname, domain: window.location.origin,
+                hostname, domain: window.location.origin,
                 plan: activePlan, max_steps: activeStepCfg.max_steps,
                 countdown_times: activeStepCfg.countdown_times,
                 started_at: startedAt, step_timestamps: [startedAt.toMillis()],
@@ -431,13 +578,13 @@
                 referrer: document.referrer || '',
             });
         } catch (e) {
-            show('Không kết nối được. Vui lòng tải lại trang.', 'error');
+            show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
         }
 
         await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
 
-        const step1Done = Timestamp.now();
+        const step1Done      = Timestamp.now();
         const stepTimestamps = [startedAt.toMillis(), step1Done.toMillis()];
         try {
             await updateDoc(doc(db, CFG.col, claimRef.id), {
@@ -459,7 +606,7 @@
     }
 
     function showWaitNextPage(state) {
-        removeBtn();
+        allWidgets.forEach(w => removeBtn(w.btnEl));
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
@@ -468,16 +615,20 @@
 
             const hintHtml = !unlocked ? `
                 <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
-                    Nếu bạn muốn hãy truy cập trang khác trên trang lấy mã giá trị có giá trị tốt hơn nhé !
+                    Hãy truy cập trang khác trên website để nhận mã tốt hơn!
                 </div>
             ` : `
                 <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
-                    Nếu bạn muốn hãy truy cập trang khác trên trang lấy mã giá trị có giá trị tốt hơn nhé !
+                    Hãy truy cập trang khác trên website để nhận mã tốt hơn!
                 </div>
                 <button class="${ucls('nextbtn')}" id="${nid}">Nhận mã ngay</button>
             `;
 
-            show(`${dots}${hintHtml}`, 'wait');
+            show(activeWidget.panelEl, `${dots}${hintHtml}`, 'wait');
+            allWidgets.forEach(w => {
+                if (w !== activeWidget) hidePanel(w.panelEl);
+            });
+
             if (unlocked) {
                 document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
             }
@@ -532,31 +683,34 @@
 
     function handleResume(state) {
         busy = true;
-        removeBtn();
+        allWidgets.forEach(w => removeBtn(w.btnEl));
         if (state.steps_completed >= 1) showWaitNextPage(state);
         else { clearState(); busy = false; }
     }
 
-    let busy = false;
+    let busy        = false;
+    let activeWidget = allWidgets[0] || null;
 
     const pending = loadState();
     if (pending && pending.hostname === hostname) {
         handleResume(pending);
-        return;
+    } else {
+        allWidgets.forEach(w => {
+            w.btnEl.addEventListener('click', () => {
+                if (busy) return;
+                activeWidget = w;
+
+                if (!isFromGoogle()) {
+                    busy = true;
+                    allWidgets.forEach(x => removeBtn(x.btnEl));
+                    broadcastCodeUI(getStaticCode());
+                    return;
+                }
+
+                if (activeStepCfg.max_steps === 1) runSimpleFlow();
+                else runMultiStepFlow();
+            });
+        });
     }
-
-    btn.addEventListener('click', () => {
-        if (busy) return;
-        busy = true;
-        removeBtn();
-
-        if (!isFromGoogle()) {
-            showCodeUI(getStaticCode());
-            return;
-        }
-
-        if (activeStepCfg.max_steps === 1) runSimpleFlow();
-        else runMultiStepFlow();
-    });
 
 })();
