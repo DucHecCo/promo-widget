@@ -77,16 +77,29 @@
     const hostname = window.location.hostname;
     let activePlan    = DEFAULT_PLAN;
     let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
+
+    // ── ĐỌC THÊM activeType TỪ FIRESTORE ──────────────────────────────────
+    // Không có mặc định — nếu type không hợp lệ / không tồn tại → báo lỗi
+    let activeType = null;
+
     try {
         const snap = await getDoc(doc(db, CFG.configCol, hostname));
         if (snap.exists()) {
-            const key = snap.data().plan;
-            if (STEP_CONFIG[key]) {
-                activePlan    = key;
-                activeStepCfg = STEP_CONFIG[key];
+            const data = snap.data();
+
+            // Đọc plan
+            if (data.plan && STEP_CONFIG[data.plan]) {
+                activePlan    = data.plan;
+                activeStepCfg = STEP_CONFIG[data.plan];
+            }
+
+            // Đọc type: chỉ chấp nhận 'google-search' hoặc 'direct'
+            if (data.type === 'direct' || data.type === 'google-search') {
+                activeType = data.type;
             }
         }
     } catch (e) {}
+    // ───────────────────────────────────────────────────────────────────────
 
     activeStepCfg = {
         ...activeStepCfg,
@@ -481,15 +494,30 @@
             activeWidget.btnEl.addEventListener('click', () => {
                 if (busy) return;
 
-                if (!isFromGoogle()) {
-                    busy = true;
-                    if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
-                    broadcastCodeUI(getStaticCode());
+                // ── LOGIC PHÂN LUỒNG THEO type ────────────────────────────────────
+                // type = 'direct'       → luôn đếm ngược, không cần check referrer
+                // type = 'google-search'→ chỉ đếm ngược khi từ Google, còn lại trả mã tĩnh
+                // type = null/không hợp lệ → báo lỗi, không chạy gì
+                if (activeType === null) {
+                    show(activeWidget.panelEl, 'Lỗi không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error');
                     return;
                 }
 
-                if (activeStepCfg.max_steps === 1) runSimpleFlow();
-                else runMultiStepFlow();
+                if (activeType === 'direct') {
+                    if (activeStepCfg.max_steps === 1) runSimpleFlow();
+                    else runMultiStepFlow();
+                } else {
+                    // activeType === 'google-search'
+                    if (!isFromGoogle()) {
+                        busy = true;
+                        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
+                        broadcastCodeUI(getStaticCode());
+                        return;
+                    }
+                    if (activeStepCfg.max_steps === 1) runSimpleFlow();
+                    else runMultiStepFlow();
+                }
+                // ─────────────────────────────────────────────────────────────────
             });
         }
     }
