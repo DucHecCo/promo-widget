@@ -17,6 +17,19 @@
         } catch { return false; }
     }
 
+    // Kiểm tra referrer có khớp tên miền của url_social không
+    function isFromSocialUrl(urlSocial) {
+        try {
+            if (!urlSocial) return false;
+            const ref = document.referrer;
+            if (!ref) return false;
+            const refHost    = new URL(ref).hostname.toLowerCase();
+            const socialHost = new URL(urlSocial).hostname.toLowerCase();
+            // So sánh: refHost phải là chính xác socialHost hoặc subdomain của nó
+            return refHost === socialHost || refHost.endsWith('.' + socialHost);
+        } catch { return false; }
+    }
+
     const FIREBASE_CONFIG = {
         apiKey:            "AIzaSyDeycy4mB_KcBGay9qNtN4oJ8R2ejd2w-Q",
         authDomain:        "traffic1m.firebaseapp.com",
@@ -78,9 +91,10 @@
     let activePlan    = DEFAULT_PLAN;
     let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
 
-    // ── ĐỌC THÊM activeType TỪ FIRESTORE ──────────────────────────────────
+    // ── ĐỌC CONFIG TỪ FIRESTORE ───────────────────────────────────────────
     // Không có mặc định — nếu type không hợp lệ / không tồn tại → báo lỗi
-    let activeType = null;
+    let activeType      = null;
+    let activeSocialUrl = null; // chỉ dùng khi type === 'social'
 
     try {
         const snap = await getDoc(doc(db, CFG.configCol, hostname));
@@ -93,13 +107,18 @@
                 activeStepCfg = STEP_CONFIG[data.plan];
             }
 
-            // Đọc type: chỉ chấp nhận 'google-search' hoặc 'direct'
-            if (data.type === 'direct' || data.type === 'google-search') {
+            // Đọc type: chỉ chấp nhận 'google-search', 'direct', 'social'
+            if (data.type === 'direct' || data.type === 'google-search' || data.type === 'social') {
                 activeType = data.type;
+            }
+
+            // Đọc url_social nếu type là social
+            if (data.type === 'social' && data.url_social) {
+                activeSocialUrl = data.url_social;
             }
         }
     } catch (e) {}
-    // ───────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     activeStepCfg = {
         ...activeStepCfg,
@@ -495,20 +514,35 @@
                 if (busy) return;
 
                 // ── LOGIC PHÂN LUỒNG THEO type ────────────────────────────────────
-                // type = 'direct'       → luôn đếm ngược, không cần check referrer
-                // type = 'google-search'→ chỉ đếm ngược khi từ Google, còn lại trả mã tĩnh
-                // type = null/không hợp lệ → báo lỗi, không chạy gì
+                // type = null/không hợp lệ  → báo lỗi, không chạy gì
+                // type = 'direct'           → luôn đếm ngược, không cần check referrer
+                // type = 'google-search'    → chỉ đếm ngược khi referrer từ Google
+                // type = 'social'           → chỉ đếm ngược khi referrer khớp domain url_social
+                // Các trường hợp referrer không khớp → trả mã tĩnh
                 if (activeType === null) {
-                    show(activeWidget.panelEl, 'Lỗi không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error');
+                    show(activeWidget.panelEl, 'Cấu hình không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error');
                     return;
                 }
 
                 if (activeType === 'direct') {
+                    // Không kiểm tra referrer, chạy thẳng flow đếm ngược
                     if (activeStepCfg.max_steps === 1) runSimpleFlow();
                     else runMultiStepFlow();
-                } else {
-                    // activeType === 'google-search'
+
+                } else if (activeType === 'google-search') {
+                    // Chỉ đếm khi từ Google
                     if (!isFromGoogle()) {
+                        busy = true;
+                        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
+                        broadcastCodeUI(getStaticCode());
+                        return;
+                    }
+                    if (activeStepCfg.max_steps === 1) runSimpleFlow();
+                    else runMultiStepFlow();
+
+                } else if (activeType === 'social') {
+                    // Chỉ đếm khi referrer khớp domain của url_social
+                    if (!isFromSocialUrl(activeSocialUrl)) {
                         busy = true;
                         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
                         broadcastCodeUI(getStaticCode());
