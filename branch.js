@@ -412,7 +412,8 @@
                 <button class="${ucls('nextbtn')}" id="${uid('n')}">Nhận mã ngay</button>
             `;
 
-            show(activeWidget.panelEl, `${hintHtml}`, 'wait');
+            activeWidget.panelEl.className = ucls('panel');
+            activeWidget.panelEl.innerHTML = `<div style="text-align:center;"><span style="display:inline-block;padding:6px 14px;border-radius:7px;border:1px solid #e0e0e0;background:#fafafa;color:#424242;font-size:10px;">${hintHtml}</span></div>`;
             if (unlocked) {
                 document.getElementById(uid('n'))?.addEventListener('click', () => runStep2(state));
             }
