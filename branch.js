@@ -169,11 +169,11 @@
             container = document.createElement('div');
             container.id = 'ma_km_2026_vip';
             let footer = document.querySelector('footer');
-            if (footer) {
-                footer.appendChild(container);
-            } else {
-                document.body.appendChild(container);
-            }
+if (footer) {
+    footer.parentNode.insertBefore(container, footer);
+} else {
+    document.body.appendChild(container);
+}
         }
         return container;
     }
