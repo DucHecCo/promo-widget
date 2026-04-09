@@ -17,7 +17,7 @@
         } catch { return false; }
     }
 
-    // Kiểm tra referrer có khớp tên miền của url_social không
+    
     function isFromSocialUrl(urlSocial) {
         try {
             if (!urlSocial) return false;
@@ -91,10 +91,9 @@
     let activePlan    = DEFAULT_PLAN;
     let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
 
-    // ── ĐỌC CONFIG TỪ FIRESTORE ───────────────────────────────────────────
-    // Không có mặc định — nếu type không hợp lệ / không tồn tại → báo lỗi
+    
     let activeType      = null;
-    let activeSocialUrl = null; // chỉ dùng khi type === 'social'
+    let activeSocialUrl = null; 
 
     try {
         const snap = await getDoc(doc(db, CFG.configCol, hostname));
@@ -107,12 +106,12 @@
                 activeStepCfg = STEP_CONFIG[data.plan];
             }
 
-            // Đọc type: chỉ chấp nhận 'google-search', 'direct', 'social'
+            
             if (data.type === 'direct' || data.type === 'google-search' || data.type === 'social') {
                 activeType = data.type;
             }
 
-            // Đọc url_social nếu type là social
+            
             if (data.type === 'social' && data.url_social) {
                 activeSocialUrl = data.url_social;
             }
