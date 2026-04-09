@@ -259,7 +259,7 @@
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                const countdownHtml = `<div style="font-size:20px; font-weight:700; text-align:center; margin:6px 0;">${r} giây</div>`;
+                const countdownHtml = `<div style="font-size:22px; font-weight:800; text-align:center; margin:4px 0;">${r} giây</div>`;
                 const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
                 const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
                 show(panelEl, `${countdownHtml}${progressHtml}${pausedHtml}`, 'countdown');
@@ -508,7 +508,7 @@
         [id^="${_p}-b_"]:hover{background:${CFG.btnHover};transform:translateY(-2px);}
 
         .${ucls('panel')}{
-            margin-top:10px;padding:8px 10px;border-radius:7px;font-size:11px;
+            margin-top:8px;padding:6px 10px;border-radius:7px;font-size:10px;
             line-height:1.4;word-break:break-word;text-align:left;
             border:1px solid transparent;
         }
@@ -520,18 +520,18 @@
 
         .${ucls('progress')}{height:3px;background:#eeeeee;border-radius:3px;margin-top:6px;overflow:hidden;}
         .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:3px;transition:width .85s linear;}
-        .${ucls('paused')}{font-size:10px;color:#9e9e9e;margin-top:4px;text-align:center;}
+        .${ucls('paused')}{font-size:9px;color:#9e9e9e;margin-top:4px;text-align:center;}
 
         .${ucls('codebox')}{
-            display:block;margin:6px 0 4px;padding:6px 12px;
+            display:block;margin:8px 0 4px;padding:8px 14px;
             background:#f9fbe7;border:1.5px dashed #aed581;border-radius:6px;
-            font-size:18px;font-weight:800;letter-spacing:3px;color:#33691e;
+            font-size:20px;font-weight:800;letter-spacing:4px;color:#33691e;
             font-family:'Courier New',monospace;text-align:center;
         }
         .${ucls('copybtn')}{
-            display:inline-flex;align-items:center;gap:5px;margin-top:6px;
-            padding:5px 12px;background:#558b2f;color:#fff;border:none;border-radius:6px;
-            font-size:10px;font-weight:700;cursor:pointer;transition:background .2s;
+            display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+            padding:6px 14px;background:#558b2f;color:#fff;border:none;border-radius:6px;
+            font-size:11px;font-weight:700;cursor:pointer;transition:background .2s;
             width:100%;justify-content:center;
         }
         .${ucls('copybtn')}:hover{background:#33691e;}
@@ -539,16 +539,16 @@
 
         .${ucls('nextbtn')}{
             display:inline-flex;align-items:center;justify-content:center;gap:5px;
-            margin-top:6px;width:100%;padding:6px 10px;
+            margin-top:8px;width:100%;padding:7px 12px;
             background:#ef6c00;color:#fff;border:none;border-radius:6px;
-            font-size:10.5px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;
+            font-size:11.5px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;
         }
         .${ucls('nextbtn')}:hover{background:#e65100;transform:translateY(-1px);}
 
         .${ucls('retrybtn')}{
-            display:inline-flex;align-items:center;gap:5px;margin-top:6px;
-            padding:5px 12px;background:#e53935;color:#fff;border:none;border-radius:6px;
-            font-size:10px;font-weight:700;cursor:pointer;width:100%;justify-content:center;
+            display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+            padding:6px 14px;background:#e53935;color:#fff;border:none;border-radius:6px;
+            font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;
         }
         .${ucls('retrybtn')}:hover{background:#b71c1c;}
     </style>`);
