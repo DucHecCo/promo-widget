@@ -236,16 +236,6 @@
         if (activeWidget) showCodeUI(activeWidget.panelEl, code);
     }
 
-    function broadcastWaiting() {
-        if (activeWidget) {
-            show(activeWidget.panelEl, `
-                <div style="text-align:center;padding:8px 0;font-size:11.5px;color:#757575;">
-                    <span class="${ucls('spinner')}"></span>&nbsp; Đang xử lý, vui lòng chờ…
-                </div>
-            `, 'wait');
-        }
-    }
-
     function copyText(text, el) {
         const done = () => {
             el.classList.add(ucls('copied')); el.textContent = 'Đã sao chép!';
@@ -260,62 +250,20 @@
         });
     }
 
-    const PROCESSING_STEPS = [
-        { label: 'Đang lấy mã...',         pctStart:  0, pctEnd: 25  },
-        { label: 'Kiểm tra tồn kho mã',    pctStart: 25, pctEnd: 55  },
-        { label: 'Kiểm tra mã hợp lệ',     pctStart: 55, pctEnd: 80  },
-        { label: 'Đang lấy mã cho bạn',    pctStart: 80, pctEnd: 100 },
-    ];
-
-    function getActiveStepIndex(pct) {
-        for (let i = 0; i < PROCESSING_STEPS.length; i++) {
-            if (pct < PROCESSING_STEPS[i].pctEnd) return i;
-        }
-        return PROCESSING_STEPS.length - 1;
-    }
-
-    function renderStepList(pct) {
-        const activeIdx = getActiveStepIndex(pct);
-        const items = PROCESSING_STEPS.map((s, i) => {
-            const done   = pct >= s.pctEnd;
-            const active = i === activeIdx;
-            const cls    = done ? ucls('step-done') : active ? ucls('step-active') : '';
-            const icon   = done ? '✓' : active ? `<span class="${ucls('spinner')}"></span>` : '○';
-            return `<li class="${ucls('step-item')} ${cls}">
-                <span class="${ucls('step-icon')}">${icon}</span>
-                <span>${s.label}</span>
-            </li>`;
-        }).join('');
-        return `<ul class="${ucls('steps-list')}">${items}</ul>`;
-    }
-
-    function stepDots(current, total) {
-        if (total < 2) return '';
-        return `<div class="${ucls('dots')}">${
-            Array.from({length: total}, (_, i) =>
-                `<div class="${ucls('dot')} ${i < current ? ucls('done') : i === current ? ucls('active') : ''}"></div>`
-            ).join('')
-        }</div>`;
-    }
-
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
-            let rem    = seconds;
+            let rem = seconds;
             let paused = document.hidden;
-            let ivId   = null;
-            const dots    = stepDots(stepIdx, totalSteps);
+            let ivId = null;
             const panelEl = activeWidget.panelEl;
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                show(panelEl, `${dots}
-                    ${renderStepList(pct)}
-                    <div style="margin-top:8px;">
-                        <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
-                    </div>
-                    ${isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : ''}
-                `, 'countdown');
-                broadcastWaiting();
+                const stepHtml = totalSteps > 1 ? `<div style="font-size:13px; font-weight:600; margin-bottom:6px;">Bước ${stepIdx+1}/${totalSteps}</div>` : '';
+                const countdownHtml = `<div style="font-size:32px; font-weight:800; text-align:center; margin:8px 0;">${r} giây</div>`;
+                const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
+                const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
+                show(panelEl, `${stepHtml}${countdownHtml}${progressHtml}${pausedHtml}`, 'countdown');
             };
 
             const tick = () => {
@@ -331,9 +279,13 @@
 
             const onVis = () => {
                 if (document.hidden) {
-                    paused = true; clearInterval(ivId); render(rem, true);
+                    paused = true;
+                    clearInterval(ivId);
+                    render(rem, true);
                 } else {
-                    paused = false; render(rem, false); ivId = setInterval(tick, 1000);
+                    paused = false;
+                    render(rem, false);
+                    ivId = setInterval(tick, 1000);
                 }
             };
 
@@ -449,9 +401,7 @@
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
-            const dots = stepDots(1, state.max_steps);
-            const nid  = uid('n');
-
+            const stepHtml = `<div style="font-size:13px; font-weight:600; margin-bottom:6px;">Bước 1/${state.max_steps}</div>`;
             const hintHtml = !unlocked ? `
                 <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
                     VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
@@ -460,12 +410,12 @@
                 <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
                     VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
                 </div>
-                <button class="${ucls('nextbtn')}" id="${nid}">Nhận mã ngay</button>
+                <button class="${ucls('nextbtn')}" id="${uid('n')}">Nhận mã ngay</button>
             `;
 
-            show(activeWidget.panelEl, `${dots}${hintHtml}`, 'wait');
+            show(activeWidget.panelEl, `${stepHtml}${hintHtml}`, 'wait');
             if (unlocked) {
-                document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
+                document.getElementById(uid('n'))?.addEventListener('click', () => runStep2(state));
             }
         }
 
@@ -574,18 +524,6 @@
         .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:3px;transition:width .85s linear;}
         .${ucls('paused')}{font-size:10px;color:#9e9e9e;margin-top:6px;text-align:center;}
 
-        .${ucls('steps-list')}{
-            list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;
-        }
-        .${ucls('step-item')}{
-            display:flex;align-items:center;gap:6px;font-size:10.5px;
-            padding:4px 8px;border-radius:5px;background:#fff9f0;
-            border:1px solid #ffe0b2;color:#6d4c00;transition:all .3s;
-        }
-        .${ucls('step-item')}.${ucls('step-done')}{background:#f1f8e9;border-color:#c5e1a5;color:#33691e;}
-        .${ucls('step-item')}.${ucls('step-active')}{background:#fff3e0;border-color:#ffa726;color:#4e2400;font-weight:700;}
-        .${ucls('step-icon')}{font-size:11px;min-width:14px;text-align:center;}
-
         .${ucls('codebox')}{
             display:block;margin:8px 0 4px;padding:8px 14px;
             background:#f9fbe7;border:1.5px dashed #aed581;border-radius:6px;
@@ -615,18 +553,5 @@
             font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;
         }
         .${ucls('retrybtn')}:hover{background:#b71c1c;}
-
-        .${ucls('dots')}{display:flex;gap:5px;margin-bottom:10px;}
-        .${ucls('dot')}{flex:1;height:2px;border-radius:3px;background:#e0e0e0;transition:background .4s;}
-        .${ucls('dot')}.${ucls('active')}{background:#ffa726;}
-        .${ucls('dot')}.${ucls('done')} {background:#aed581;}
-
-        @keyframes ${ucls('spin')}{to{transform:rotate(360deg)}}
-        .${ucls('spinner')}{
-            display:inline-block;width:10px;height:10px;
-            border:2px solid #ffa726;border-top-color:transparent;
-            border-radius:50%;animation:${ucls('spin')} .7s linear infinite;
-            vertical-align:middle;
-        }
     </style>`);
 })();
