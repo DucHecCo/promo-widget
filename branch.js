@@ -259,10 +259,11 @@
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                const countdownHtml = `<div style="font-size:22px; font-weight:800; text-align:center; margin:4px 0;">${r} giây</div>`;
+                const countdownHtml = `<div style="font-size:22px;font-weight:800;text-align:center;margin:4px 0;white-space:nowrap;">${r} giây</div>`;
                 const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
                 const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
-                show(panelEl, `${countdownHtml}${progressHtml}${pausedHtml}`, 'countdown');
+                panelEl.className = ucls('panel');
+                panelEl.innerHTML = `<div style="text-align:center;"><span style="display:inline-block;padding:6px 14px;border-radius:7px;border:1px solid #ffe082;background:#fffde7;color:#4e342e;">${countdownHtml}${progressHtml}${pausedHtml}</span></div>`;
             };
 
             const tick = () => {
@@ -513,7 +514,7 @@
             border:1px solid transparent;
         }
         .${ucls('panel')}:empty{display:none;}
-        .${ucls('countdown')}{background:#fffde7;border-color:#ffe082;color:#4e342e;}
+        .${ucls('countdown')}{display:inline-block;background:#fffde7;border-color:#ffe082;color:#4e342e;}
         .${ucls('wait')}    {background:#fafafa;border-color:#e0e0e0;color:#424242;}
         .${ucls('success')} {background:#f1f8e9;border-color:#aed581;color:#33691e;}
         .${ucls('error')}   {background:#fafafa;border-color:#ef9a9a;color:#c62828;}
