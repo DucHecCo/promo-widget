@@ -259,11 +259,10 @@
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                const stepHtml = totalSteps > 1 ? `<div style="font-size:13px; font-weight:600; margin-bottom:6px;">Bước ${stepIdx+1}/${totalSteps}</div>` : '';
-                const countdownHtml = `<div style="font-size:32px; font-weight:800; text-align:center; margin:8px 0;">${r} giây</div>`;
+                const countdownHtml = `<div style="font-size:12px; font-weight:700; text-align:center; margin:4px 0; padding:6px 14px; background:rgba(0,0,0,0.05); border-radius:7px; display:inline-block; width:auto; min-width:60px;">${r} giây</div>`;
                 const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
                 const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
-                show(panelEl, `${stepHtml}${countdownHtml}${progressHtml}${pausedHtml}`, 'countdown');
+                show(panelEl, `<div style="text-align:center;">${countdownHtml}${progressHtml}${pausedHtml}</div>`, 'countdown');
             };
 
             const tick = () => {
@@ -401,7 +400,6 @@
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
-            const stepHtml = `<div style="font-size:13px; font-weight:600; margin-bottom:6px;">Bước 1/${state.max_steps}</div>`;
             const hintHtml = !unlocked ? `
                 <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
                     VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
@@ -413,7 +411,7 @@
                 <button class="${ucls('nextbtn')}" id="${uid('n')}">Nhận mã ngay</button>
             `;
 
-            show(activeWidget.panelEl, `${stepHtml}${hintHtml}`, 'wait');
+            show(activeWidget.panelEl, hintHtml, 'wait');
             if (unlocked) {
                 document.getElementById(uid('n'))?.addEventListener('click', () => runStep2(state));
             }
