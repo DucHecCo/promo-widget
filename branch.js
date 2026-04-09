@@ -259,7 +259,7 @@
 
             const render = (r, isPaused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                const countdownHtml = `<div style="font-size:22px;font-weight:800;text-align:center;margin:4px 0;white-space:nowrap;">${r} giây</div>`;
+                const countdownHtml = `<div style="font-size:22px;font-weight:800;text-align:center;margin:4px 0;white-space:nowrap;">${r}</div>`;
                 const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
                 const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
                 panelEl.className = ucls('panel');
