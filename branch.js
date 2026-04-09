@@ -132,156 +132,417 @@
     };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
 
-    const PLACEMENT_STYLES = {
-        hero: {
-            wrapper: `
-                display:block;width:100%;max-width:420px;
-                margin:18px auto 0;text-align:center;
-            `,
-            btnExtra: `
-                padding:13px 32px;font-size:15px;border-radius:10px;
-                box-shadow:0 5px 20px rgba(229,57,53,.40);
-                letter-spacing:.3px;
-            `,
-        },
-        inline: {
-            wrapper: `
-                display:block;width:100%;max-width:380px;
-                margin:20px auto;text-align:center;
-                border-top:1px dashed #ffcc80;padding-top:16px;
-            `,
-            btnExtra: `
-                padding:9px 22px;font-size:13px;border-radius:8px;
-            `,
-        },
-        footer: {
-            wrapper: `
-                display:block;width:100%;max-width:320px;
-                margin:12px auto 0;text-align:center;opacity:.85;
-            `,
-            btnExtra: `
-                padding:7px 16px;font-size:11.5px;border-radius:6px;
-                box-shadow:none;background:#b71c1c;
-            `,
-        },
-    };
-
-    function findHeroAnchor() {
-        const explicit = document.querySelector(
-            '#mkm-hero, .hero, [class*="hero"], [id*="hero"], ' +
-            '.banner, [class*="banner"], header'
-        );
-        if (explicit) return { el: explicit, position: 'afterend' };
-        const h1 = document.querySelector('h1');
-        if (h1) {
-            const parent = h1.closest('section, article, div') || h1.parentElement;
-            return { el: parent || h1, position: 'afterend' };
+    function getFixedContainer() {
+        let container = document.getElementById('ma_km_2026_vip');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'ma_km_2026_vip';
+            let footer = document.querySelector('footer');
+            if (footer) {
+                footer.appendChild(container);
+            } else {
+                document.body.appendChild(container);
+            }
         }
-        return null;
+        return container;
     }
 
-    function findInlineAnchors() {
-        const heroAnchor = findHeroAnchor();
-        const heroBound  = heroAnchor
-            ? heroAnchor.el.getBoundingClientRect().bottom + window.scrollY
-            : window.innerHeight;
+    function createWidgetInContainer() {
+        const container = getFixedContainer();
+        container.innerHTML = '';
 
-        return [
-            ...document.querySelectorAll(
-                'article p, .post-content p, .entry-content p, ' +
-                'main p, #content p, .content p, ' +
-                'section h2, section h3, article h2, article h3'
-            )
-        ].filter(el => {
-            const top = el.getBoundingClientRect().top + window.scrollY;
-            return top > heroBound + 80 && el.textContent.trim().length > 40;
-        });
-    }
+        const wid = uid('w_fixed');
+        const bid = uid('b_fixed');
+        const pid = uid('p_fixed');
 
-    function findFooterAnchor() {
-        return (
-            document.getElementById('mkm-footer') ||
-            document.querySelector('footer') ||
-            document.querySelector('[class*="footer"]') ||
-            document.querySelector('[id*="footer"]')
-        );
-    }
+        const wrapperStyle = `
+            display: block;
+            width: 100%;
+            text-align: center;
+        `;
 
-    function createWidgetEl(placement) {
-        const wid    = uid('w_' + placement + '_' + Math.random().toString(36).slice(2, 5));
-        const bid    = uid('b_' + placement + '_' + Math.random().toString(36).slice(2, 5));
-        const pid    = uid('p_' + placement + '_' + Math.random().toString(36).slice(2, 5));
-        const styles = PLACEMENT_STYLES[placement] || PLACEMENT_STYLES.inline;
+        const btnStyle = `
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: ${CFG.btnColor};
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(229, 57, 53, 0.30);
+            transition: background .2s, transform .15s, box-shadow .2s;
+        `;
 
         const wrap = document.createElement('div');
         wrap.id = wid;
-        wrap.style.cssText = styles.wrapper;
+        wrap.style.cssText = wrapperStyle;
+
+        const iconHtml = `<i class="bi bi-gift-fill" style="font-size:14px;"></i>`;
+
         wrap.innerHTML = `
-            <button id="${bid}" style="${styles.btnExtra}">${CFG.btnLabel}</button>
-            <div id="${pid}" class="${ucls('panel')}"></div>
+            <button id="${bid}" style="${btnStyle}">
+                ${iconHtml}
+                <span>${CFG.btnLabel}</span>
+            </button>
+            <div id="${pid}" class="${ucls('panel')}" style="margin-top:12px;"></div>
         `;
 
-        return { wrapEl: wrap, btnId: bid, panelId: pid };
-    }
+        container.appendChild(wrap);
 
-    const allWidgets = [];
-
-    function insertWidget(placement, anchor, position = 'afterend') {
-        const { wrapEl, btnId, panelId } = createWidgetEl(placement);
-        try {
-            if (position === 'afterend') {
-                anchor.insertAdjacentElement('afterend', wrapEl);
-            } else if (position === 'beforeend') {
-                anchor.appendChild(wrapEl);
-            } else if (position === 'afterbegin') {
-                anchor.insertAdjacentElement('afterbegin', wrapEl);
-            } else {
-                anchor.insertAdjacentElement('afterend', wrapEl);
-            }
-        } catch (e) {
-            document.body.appendChild(wrapEl);
-        }
-
-        const btnEl   = document.getElementById(btnId);
-        const panelEl = document.getElementById(panelId);
+        const btnEl   = document.getElementById(bid);
+        const panelEl = document.getElementById(pid);
         if (!btnEl || !panelEl) return null;
 
-        const entry = { placement, wrapEl, btnEl, panelEl };
-        allWidgets.push(entry);
-        return entry;
+        return { wrapEl: wrap, btnEl, panelEl };
     }
 
-    function setupPlacements() {
-        const candidates = [];
+    let activeWidget = null;
+    let busy = false;
 
-        const heroAnchor = findHeroAnchor();
-        if (heroAnchor) {
-            candidates.push(() => insertWidget('hero', heroAnchor.el, heroAnchor.position));
-        }
+    activeWidget = createWidgetInContainer();
+    if (!activeWidget) return;
 
-        const inlineCandidates = findInlineAnchors();
-        if (inlineCandidates.length > 0) {
-            const pick = inlineCandidates[Math.floor(Math.random() * inlineCandidates.length)];
-            candidates.push(() => insertWidget('inline', pick, 'afterend'));
-        }
+    function hidePanel(panelEl) {
+        panelEl.className = ucls('panel');
+        panelEl.innerHTML = '';
+    }
 
-        const footerEl = findFooterAnchor();
-        if (footerEl) {
-            candidates.push(() => insertWidget('footer', footerEl, 'afterbegin'));
-        }
+    function show(panelEl, html, type) {
+        panelEl.className = `${ucls('panel')} ${ucls(type)}`;
+        panelEl.innerHTML = html;
+    }
 
-        const explicit = document.getElementById('mkm-container');
-        if (explicit) {
-            candidates.push(() => insertWidget('inline', explicit, 'beforeend'));
-        }
+    function showCodeUI(panelEl, code) {
+        const cid = uid('c');
+        show(panelEl, `
+            <div style="text-align:center;font-size:11px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã khuyến mãi của bạn</div>
+            <span class="${ucls('codebox')}">${code}</span>
+            <div style="text-align:center">
+                <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
+            </div>
+        `, 'success');
+        document.getElementById(cid)?.addEventListener('click', () =>
+            copyText(code, document.getElementById(cid))
+        );
+    }
 
-        if (candidates.length > 0) {
-            const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-            chosen();
+    function broadcastCodeUI(code) {
+        if (activeWidget) showCodeUI(activeWidget.panelEl, code);
+    }
+
+    function broadcastWaiting() {
+        if (activeWidget) {
+            show(activeWidget.panelEl, `
+                <div style="text-align:center;padding:8px 0;font-size:11.5px;color:#757575;">
+                    <span class="${ucls('spinner')}"></span>&nbsp; Đang xử lý, vui lòng chờ…
+                </div>
+            `, 'wait');
         }
     }
 
-    setupPlacements();
+    function copyText(text, el) {
+        const done = () => {
+            el.classList.add(ucls('copied')); el.textContent = 'Đã sao chép!';
+            setTimeout(() => { el.classList.remove(ucls('copied')); el.textContent = 'Sao chép mã'; }, 2500);
+        };
+        navigator.clipboard?.writeText(text).then(done).catch(() => {
+            const ta = Object.assign(document.createElement('textarea'),
+                { value: text, style: 'position:fixed;opacity:0' });
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); done(); } catch (_) {}
+            document.body.removeChild(ta);
+        });
+    }
+
+    const PROCESSING_STEPS = [
+        { label: 'Đang lấy mã...',         pctStart:  0, pctEnd: 25  },
+        { label: 'Kiểm tra tồn kho mã',    pctStart: 25, pctEnd: 55  },
+        { label: 'Kiểm tra mã hợp lệ',     pctStart: 55, pctEnd: 80  },
+        { label: 'Đang lấy mã cho bạn',    pctStart: 80, pctEnd: 100 },
+    ];
+
+    function getActiveStepIndex(pct) {
+        for (let i = 0; i < PROCESSING_STEPS.length; i++) {
+            if (pct < PROCESSING_STEPS[i].pctEnd) return i;
+        }
+        return PROCESSING_STEPS.length - 1;
+    }
+
+    function renderStepList(pct) {
+        const activeIdx = getActiveStepIndex(pct);
+        const items = PROCESSING_STEPS.map((s, i) => {
+            const done   = pct >= s.pctEnd;
+            const active = i === activeIdx;
+            const cls    = done ? ucls('step-done') : active ? ucls('step-active') : '';
+            const icon   = done ? '✓' : active ? `<span class="${ucls('spinner')}"></span>` : '○';
+            return `<li class="${ucls('step-item')} ${cls}">
+                <span class="${ucls('step-icon')}">${icon}</span>
+                <span>${s.label}</span>
+            </li>`;
+        }).join('');
+        return `<ul class="${ucls('steps-list')}">${items}</ul>`;
+    }
+
+    function stepDots(current, total) {
+        if (total < 2) return '';
+        return `<div class="${ucls('dots')}">${
+            Array.from({length: total}, (_, i) =>
+                `<div class="${ucls('dot')} ${i < current ? ucls('done') : i === current ? ucls('active') : ''}"></div>`
+            ).join('')
+        }</div>`;
+    }
+
+    function countdown(stepIdx, totalSteps, seconds) {
+        return new Promise(resolve => {
+            let rem    = seconds;
+            let paused = document.hidden;
+            let ivId   = null;
+            const dots    = stepDots(stepIdx, totalSteps);
+            const panelEl = activeWidget.panelEl;
+
+            const render = (r, isPaused) => {
+                const pct = Math.round((1 - r / seconds) * 100);
+                show(panelEl, `${dots}
+                    ${renderStepList(pct)}
+                    <div style="margin-top:8px;">
+                        <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
+                    </div>
+                    ${isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : ''}
+                `, 'countdown');
+                broadcastWaiting();
+            };
+
+            const tick = () => {
+                rem--;
+                if (rem <= 0) {
+                    clearInterval(ivId);
+                    document.removeEventListener('visibilitychange', onVis);
+                    resolve();
+                } else {
+                    render(rem, false);
+                }
+            };
+
+            const onVis = () => {
+                if (document.hidden) {
+                    paused = true; clearInterval(ivId); render(rem, true);
+                } else {
+                    paused = false; render(rem, false); ivId = setInterval(tick, 1000);
+                }
+            };
+
+            document.addEventListener('visibilitychange', onVis);
+            render(rem, paused);
+            if (!paused) ivId = setInterval(tick, 1000);
+        });
+    }
+
+    async function finalizeAndShow(state, stepTimestamps) {
+        hidePanel(activeWidget.panelEl);
+        const code      = await genUniqueCode();
+        const claimedAt = Timestamp.now();
+        const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
+
+        try {
+            await updateDoc(doc(db, CFG.col, state.docId), {
+                claimed_at: claimedAt, duration_sec: durSec,
+                steps_completed: state.max_steps, step_timestamps: stepTimestamps, code,
+            });
+        } catch (e) {
+            const rid = uid('r');
+            show(activeWidget.panelEl, `Không lưu được mã. Vui lòng thử lại.
+                <div style="text-align:center;margin-top:8px">
+                    <button class="${ucls('retrybtn')}" id="${rid}">Thử lại</button>
+                </div>`, 'error');
+            document.getElementById(rid)?.addEventListener('click',
+                () => finalizeAndShow(state, stepTimestamps));
+            return;
+        }
+
+        clearState();
+        broadcastCodeUI(code);
+    }
+
+    async function runSimpleFlow() {
+        busy = true;
+        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
+        hidePanel(activeWidget.panelEl);
+
+        const startedAt      = Timestamp.now();
+        const stepTimestamps = [startedAt.toMillis()];
+        let claimRef;
+
+        try {
+            claimRef = await addDoc(collection(db, CFG.col), {
+                hostname, domain: window.location.origin,
+                plan: activePlan, max_steps: 1,
+                countdown_times: activeStepCfg.countdown_times,
+                started_at: startedAt, step_timestamps: stepTimestamps,
+                claimed_at: null, duration_sec: null, steps_completed: 0, code: null,
+                referrer: document.referrer || '',
+            });
+        } catch (e) {
+            show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
+            busy = false; return;
+        }
+
+        await countdown(0, 1, activeStepCfg.countdown_times[0]);
+        await finalizeAndShow(
+            { docId: claimRef.id, max_steps: 1, step_starts: [startedAt.toMillis()] },
+            stepTimestamps
+        );
+    }
+
+    async function runMultiStepFlow() {
+        busy = true;
+        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
+        hidePanel(activeWidget.panelEl);
+
+        const startedAt = Timestamp.now();
+        let claimRef;
+
+        try {
+            claimRef = await addDoc(collection(db, CFG.col), {
+                hostname, domain: window.location.origin,
+                plan: activePlan, max_steps: activeStepCfg.max_steps,
+                countdown_times: activeStepCfg.countdown_times,
+                started_at: startedAt, step_timestamps: [startedAt.toMillis()],
+                claimed_at: null, duration_sec: null, steps_completed: 0, code: null,
+                referrer: document.referrer || '',
+            });
+        } catch (e) {
+            show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
+            busy = false; return;
+        }
+
+        await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
+
+        const step1Done      = Timestamp.now();
+        const stepTimestamps = [startedAt.toMillis(), step1Done.toMillis()];
+        try {
+            await updateDoc(doc(db, CFG.col, claimRef.id), {
+                steps_completed: 1, step_timestamps: stepTimestamps,
+                step1_completed_at: step1Done,
+            });
+        } catch (e) {}
+
+        const state = {
+            docId: claimRef.id, plan: activePlan,
+            max_steps: activeStepCfg.max_steps,
+            countdown_times: activeStepCfg.countdown_times,
+            step_starts: stepTimestamps, steps_completed: 1,
+            hostname, origin_path: location.pathname,
+            page_visited: false,
+        };
+        saveState(state);
+        showWaitNextPage(state);
+    }
+
+    function showWaitNextPage(state) {
+        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
+        const originPath = state.origin_path || location.pathname;
+
+        function renderWait(unlocked) {
+            const dots = stepDots(1, state.max_steps);
+            const nid  = uid('n');
+
+            const hintHtml = !unlocked ? `
+                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
+                    VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
+                </div>
+            ` : `
+                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
+                    VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
+                </div>
+                <button class="${ucls('nextbtn')}" id="${nid}">Nhận mã ngay</button>
+            `;
+
+            show(activeWidget.panelEl, `${dots}${hintHtml}`, 'wait');
+            if (unlocked) {
+                document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
+            }
+        }
+
+        const unlocked = state.page_visited === true || location.pathname !== originPath;
+        renderWait(unlocked);
+
+        if (!unlocked) {
+            const onBeforeUnload = () => {
+                if (location.pathname !== originPath) {
+                    const fresh = loadState();
+                    if (fresh) saveState({ ...fresh, page_visited: true });
+                }
+            };
+            window.addEventListener('beforeunload', onBeforeUnload);
+
+            const pollId = setInterval(() => {
+                if (location.pathname !== originPath) {
+                    clearInterval(pollId);
+                    window.removeEventListener('beforeunload', onBeforeUnload);
+                    const fresh = loadState();
+                    if (fresh) saveState({ ...fresh, page_visited: true });
+                    renderWait(true);
+                }
+            }, 800);
+        }
+    }
+
+    async function runStep2(state) {
+        const stepTimestamps = [...state.step_starts];
+
+        for (let i = 1; i < state.max_steps; i++) {
+            await countdown(i, state.max_steps, state.countdown_times[i]);
+
+            const stepDone = Timestamp.now();
+            stepTimestamps.push(stepDone.toMillis());
+
+            try {
+                await updateDoc(doc(db, CFG.col, state.docId), {
+                    steps_completed: i + 1, step_timestamps: stepTimestamps,
+                    [`step${i + 1}_completed_at`]: stepDone,
+                });
+            } catch (e) {}
+        }
+
+        await finalizeAndShow(
+            { docId: state.docId, max_steps: state.max_steps, step_starts: [state.step_starts[0]] },
+            stepTimestamps
+        );
+    }
+
+    function handleResume(state) {
+        busy = true;
+        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
+        if (state.steps_completed >= 1) showWaitNextPage(state);
+        else { clearState(); busy = false; }
+    }
+
+    const pending = loadState();
+    if (pending && pending.hostname === hostname) {
+        handleResume(pending);
+    } else {
+        if (activeWidget && activeWidget.btnEl) {
+            activeWidget.btnEl.addEventListener('click', () => {
+                if (busy) return;
+
+                if (!isFromGoogle()) {
+                    busy = true;
+                    if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
+                    broadcastCodeUI(getStaticCode());
+                    return;
+                }
+
+                if (activeStepCfg.max_steps === 1) runSimpleFlow();
+                else runMultiStepFlow();
+            });
+        }
+    }
 
     document.head.insertAdjacentHTML('beforeend', `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
@@ -368,349 +629,4 @@
             vertical-align:middle;
         }
     </style>`);
-
-    const removeBtn = btnEl => { if (btnEl && btnEl.parentNode) btnEl.parentNode.removeChild(btnEl); };
-    const hidePanel = panelEl => { panelEl.className = ucls('panel'); panelEl.innerHTML = ''; };
-
-    const show = (panelEl, html, type) => {
-        panelEl.className = `${ucls('panel')} ${ucls(type)}`;
-        panelEl.innerHTML = html;
-    };
-
-    function showCodeUI(panelEl, code) {
-        const cid = uid('c');
-        show(panelEl, `
-            <div style="text-align:center;font-size:11px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã khuyến mãi của bạn</div>
-            <span class="${ucls('codebox')}">${code}</span>
-            <div style="text-align:center">
-                <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
-            </div>
-        `, 'success');
-        document.getElementById(cid)?.addEventListener('click', () =>
-            copyText(code, document.getElementById(cid))
-        );
-    }
-
-    function broadcastCodeUI(code) {
-        allWidgets.forEach(w => showCodeUI(w.panelEl, code));
-    }
-
-    function stepDots(current, total) {
-        if (total < 2) return '';
-        return `<div class="${ucls('dots')}">${
-            Array.from({length: total}, (_, i) =>
-                `<div class="${ucls('dot')} ${i < current ? ucls('done') : i === current ? ucls('active') : ''}"></div>`
-            ).join('')
-        }</div>`;
-    }
-
-    function copyText(text, el) {
-        const done = () => {
-            el.classList.add(ucls('copied')); el.textContent = 'Đã sao chép!';
-            setTimeout(() => { el.classList.remove(ucls('copied')); el.textContent = 'Sao chép mã'; }, 2500);
-        };
-        navigator.clipboard?.writeText(text).then(done).catch(() => {
-            const ta = Object.assign(document.createElement('textarea'),
-                { value: text, style: 'position:fixed;opacity:0' });
-            document.body.appendChild(ta); ta.select();
-            try { document.execCommand('copy'); done(); } catch (_) {}
-            document.body.removeChild(ta);
-        });
-    }
-
-    const PROCESSING_STEPS = [
-        { label: 'Đang lấy mã...',         pctStart:  0, pctEnd: 25  },
-        { label: 'Kiểm tra tồn kho mã',    pctStart: 25, pctEnd: 55  },
-        { label: 'Kiểm tra mã hợp lệ',     pctStart: 55, pctEnd: 80  },
-        { label: 'Đang lấy mã cho bạn',    pctStart: 80, pctEnd: 100 },
-    ];
-
-    function getActiveStepIndex(pct) {
-        for (let i = 0; i < PROCESSING_STEPS.length; i++) {
-            if (pct < PROCESSING_STEPS[i].pctEnd) return i;
-        }
-        return PROCESSING_STEPS.length - 1;
-    }
-
-    function renderStepList(pct) {
-        const activeIdx = getActiveStepIndex(pct);
-        const items = PROCESSING_STEPS.map((s, i) => {
-            const done   = pct >= s.pctEnd;
-            const active = i === activeIdx;
-            const cls    = done ? ucls('step-done') : active ? ucls('step-active') : '';
-            const icon   = done ? '✓' : active ? `<span class="${ucls('spinner')}"></span>` : '○';
-            return `<li class="${ucls('step-item')} ${cls}">
-                <span class="${ucls('step-icon')}">${icon}</span>
-                <span>${s.label}</span>
-            </li>`;
-        }).join('');
-        return `<ul class="${ucls('steps-list')}">${items}</ul>`;
-    }
-
-    function broadcastWaiting() {
-        allWidgets.forEach(w => {
-            if (w !== activeWidget) {
-                show(w.panelEl, `
-                    <div style="text-align:center;padding:8px 0;font-size:11.5px;color:#757575;">
-                        <span class="${ucls('spinner')}"></span>&nbsp; Đang xử lý, vui lòng chờ…
-                    </div>
-                `, 'wait');
-            }
-        });
-    }
-
-    function countdown(stepIdx, totalSteps, seconds) {
-        return new Promise(resolve => {
-            let rem    = seconds;
-            let paused = document.hidden;
-            let ivId   = null;
-            const dots    = stepDots(stepIdx, totalSteps);
-            const panelEl = activeWidget.panelEl;
-
-            const render = (r, isPaused) => {
-                const pct = Math.round((1 - r / seconds) * 100);
-                show(panelEl, `${dots}
-                    ${renderStepList(pct)}
-                    <div style="margin-top:8px;">
-                        <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
-                    </div>
-                    ${isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : ''}
-                `, 'countdown');
-                broadcastWaiting();
-            };
-
-            const tick = () => {
-                rem--;
-                if (rem <= 0) {
-                    clearInterval(ivId);
-                    document.removeEventListener('visibilitychange', onVis);
-                    resolve();
-                } else {
-                    render(rem, false);
-                }
-            };
-
-            const onVis = () => {
-                if (document.hidden) {
-                    paused = true; clearInterval(ivId); render(rem, true);
-                } else {
-                    paused = false; render(rem, false); ivId = setInterval(tick, 1000);
-                }
-            };
-
-            document.addEventListener('visibilitychange', onVis);
-            render(rem, paused);
-            if (!paused) ivId = setInterval(tick, 1000);
-        });
-    }
-
-    async function finalizeAndShow(state, stepTimestamps) {
-        allWidgets.forEach(w => hidePanel(w.panelEl));
-        const code      = await genUniqueCode();
-        const claimedAt = Timestamp.now();
-        const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
-
-        try {
-            await updateDoc(doc(db, CFG.col, state.docId), {
-                claimed_at: claimedAt, duration_sec: durSec,
-                steps_completed: state.max_steps, step_timestamps: stepTimestamps, code,
-            });
-        } catch (e) {
-            const rid = uid('r');
-            show(activeWidget.panelEl, `Không lưu được mã. Vui lòng thử lại.
-                <div style="text-align:center;margin-top:8px">
-                    <button class="${ucls('retrybtn')}" id="${rid}">Thử lại</button>
-                </div>`, 'error');
-            document.getElementById(rid)?.addEventListener('click',
-                () => finalizeAndShow(state, stepTimestamps));
-            return;
-        }
-
-        clearState();
-        broadcastCodeUI(code);
-    }
-
-    async function runSimpleFlow() {
-        busy = true;
-        allWidgets.forEach(w => removeBtn(w.btnEl));
-        allWidgets.forEach(w => hidePanel(w.panelEl));
-
-        const startedAt      = Timestamp.now();
-        const stepTimestamps = [startedAt.toMillis()];
-        let claimRef;
-
-        try {
-            claimRef = await addDoc(collection(db, CFG.col), {
-                hostname, domain: window.location.origin,
-                plan: activePlan, max_steps: 1,
-                countdown_times: activeStepCfg.countdown_times,
-                started_at: startedAt, step_timestamps: stepTimestamps,
-                claimed_at: null, duration_sec: null, steps_completed: 0, code: null,
-                referrer: document.referrer || '',
-            });
-        } catch (e) {
-            show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
-            busy = false; return;
-        }
-
-        await countdown(0, 1, activeStepCfg.countdown_times[0]);
-        await finalizeAndShow(
-            { docId: claimRef.id, max_steps: 1, step_starts: [startedAt.toMillis()] },
-            stepTimestamps
-        );
-    }
-
-    async function runMultiStepFlow() {
-        busy = true;
-        allWidgets.forEach(w => removeBtn(w.btnEl));
-        allWidgets.forEach(w => hidePanel(w.panelEl));
-
-        const startedAt = Timestamp.now();
-        let claimRef;
-
-        try {
-            claimRef = await addDoc(collection(db, CFG.col), {
-                hostname, domain: window.location.origin,
-                plan: activePlan, max_steps: activeStepCfg.max_steps,
-                countdown_times: activeStepCfg.countdown_times,
-                started_at: startedAt, step_timestamps: [startedAt.toMillis()],
-                claimed_at: null, duration_sec: null, steps_completed: 0, code: null,
-                referrer: document.referrer || '',
-            });
-        } catch (e) {
-            show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
-            busy = false; return;
-        }
-
-        await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
-
-        const step1Done      = Timestamp.now();
-        const stepTimestamps = [startedAt.toMillis(), step1Done.toMillis()];
-        try {
-            await updateDoc(doc(db, CFG.col, claimRef.id), {
-                steps_completed: 1, step_timestamps: stepTimestamps,
-                step1_completed_at: step1Done,
-            });
-        } catch (e) {}
-
-        const state = {
-            docId: claimRef.id, plan: activePlan,
-            max_steps: activeStepCfg.max_steps,
-            countdown_times: activeStepCfg.countdown_times,
-            step_starts: stepTimestamps, steps_completed: 1,
-            hostname, origin_path: location.pathname,
-            page_visited: false,
-        };
-        saveState(state);
-        showWaitNextPage(state);
-    }
-
-    function showWaitNextPage(state) {
-        allWidgets.forEach(w => removeBtn(w.btnEl));
-        const originPath = state.origin_path || location.pathname;
-
-        function renderWait(unlocked) {
-            const dots = stepDots(1, state.max_steps);
-            const nid  = uid('n');
-
-            const hintHtml = !unlocked ? `
-                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
-                    Hãy truy cập trang khác trên website để nhận mã tốt hơn!
-                </div>
-            ` : `
-                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
-                    Hãy truy cập trang khác trên website để nhận mã tốt hơn!
-                </div>
-                <button class="${ucls('nextbtn')}" id="${nid}">Nhận mã ngay</button>
-            `;
-
-            show(activeWidget.panelEl, `${dots}${hintHtml}`, 'wait');
-            allWidgets.forEach(w => {
-                if (w !== activeWidget) hidePanel(w.panelEl);
-            });
-
-            if (unlocked) {
-                document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
-            }
-        }
-
-        const unlocked = state.page_visited === true || location.pathname !== originPath;
-        renderWait(unlocked);
-
-        if (!unlocked) {
-            const onBeforeUnload = () => {
-                if (location.pathname !== originPath) {
-                    const fresh = loadState();
-                    if (fresh) saveState({ ...fresh, page_visited: true });
-                }
-            };
-            window.addEventListener('beforeunload', onBeforeUnload);
-
-            const pollId = setInterval(() => {
-                if (location.pathname !== originPath) {
-                    clearInterval(pollId);
-                    window.removeEventListener('beforeunload', onBeforeUnload);
-                    const fresh = loadState();
-                    if (fresh) saveState({ ...fresh, page_visited: true });
-                    renderWait(true);
-                }
-            }, 800);
-        }
-    }
-
-    async function runStep2(state) {
-        const stepTimestamps = [...state.step_starts];
-
-        for (let i = 1; i < state.max_steps; i++) {
-            await countdown(i, state.max_steps, state.countdown_times[i]);
-
-            const stepDone = Timestamp.now();
-            stepTimestamps.push(stepDone.toMillis());
-
-            try {
-                await updateDoc(doc(db, CFG.col, state.docId), {
-                    steps_completed: i + 1, step_timestamps: stepTimestamps,
-                    [`step${i + 1}_completed_at`]: stepDone,
-                });
-            } catch (e) {}
-        }
-
-        await finalizeAndShow(
-            { docId: state.docId, max_steps: state.max_steps, step_starts: [state.step_starts[0]] },
-            stepTimestamps
-        );
-    }
-
-    function handleResume(state) {
-        busy = true;
-        allWidgets.forEach(w => removeBtn(w.btnEl));
-        if (state.steps_completed >= 1) showWaitNextPage(state);
-        else { clearState(); busy = false; }
-    }
-
-    let busy        = false;
-    let activeWidget = allWidgets[0] || null;
-
-    const pending = loadState();
-    if (pending && pending.hostname === hostname) {
-        handleResume(pending);
-    } else {
-        allWidgets.forEach(w => {
-            w.btnEl.addEventListener('click', () => {
-                if (busy) return;
-                activeWidget = w;
-
-                if (!isFromGoogle()) {
-                    busy = true;
-                    allWidgets.forEach(x => removeBtn(x.btnEl));
-                    broadcastCodeUI(getStaticCode());
-                    return;
-                }
-
-                if (activeStepCfg.max_steps === 1) runSimpleFlow();
-                else runMultiStepFlow();
-            });
-        });
-    }
-
 })();
