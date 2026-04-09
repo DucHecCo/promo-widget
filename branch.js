@@ -183,7 +183,7 @@
         wrap.id = wid;
         wrap.style.cssText = wrapperStyle;
 
-        const iconHtml = `<i class="bi bi-gift-fill" style="font-size:14px;"></i>`;
+        const iconHtml = `<img src="https://traffic1m.net/uploads/favicon_1772707655.png" style="width:14px; height:14px; filter: brightness(0) invert(1);" alt="">`;
 
         wrap.innerHTML = `
             <button id="${bid}" style="${btnStyle}">
