@@ -53,7 +53,7 @@
     const CLAIM_STORE_TTL = 3 * 60 * 1000;
 
     const CFG = {
-        btnLabel:   'Lấy mã khuyến mãi',
+        btnLabel:   'Lấy mã',
         btnColor:   '#e53935',
         btnHover:   '#b71c1c',
         codeLength: 10,
@@ -252,7 +252,7 @@ if (footer) {
     function showCodeUI(panelEl, code) {
         const cid = uid('c');
         show(panelEl, `
-            <div style="text-align:center;font-size:11px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã khuyến mãi của bạn</div>
+            <div style="text-align:center;font-size:11px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã của bạn</div>
             <span class="${ucls('codebox')}">${code}</span>
             <div style="text-align:center">
                 <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
