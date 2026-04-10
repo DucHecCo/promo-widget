@@ -433,11 +433,11 @@ if (footer) {
 
         function renderWait(unlocked) {
             const hintHtml = !unlocked ? `
-                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
+                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;font-weight:700;">
                     VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
                 </div>
             ` : `
-                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
+                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;font-weight:700;">
                     VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
                 </div>
                 <button class="${ucls('nextbtn')}" id="${uid('n')}">Nhận mã ngay</button>
