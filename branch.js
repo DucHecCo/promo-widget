@@ -294,7 +294,7 @@ if (footer) {
                 const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
                 const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
                 panelEl.className = ucls('panel');
-                panelEl.innerHTML = `<div style="text-align:center;"><span style="display:inline-block;padding:6px 14px;border-radius:7px;border:1px solid #ef9a9a;background:#ffebee;color:#ffffff;">${countdownHtml}${progressHtml}${pausedHtml}</span></div>`;
+                panelEl.innerHTML = `<div style="text-align:center;"><span style="display:inline-block;padding:6px 14px;border-radius:7px;border:1px solid #ef9a9a;background:#ffcdd2;color:##171514;">${countdownHtml}${progressHtml}${pausedHtml}</span></div>`;
             };
 
             const tick = () => {
