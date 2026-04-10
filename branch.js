@@ -582,7 +582,7 @@ if (footer) {
         .${ucls('error')}   {background:#fafafa;border-color:#ef9a9a;color:#c62828;}
 
         .${ucls('progress')}{height:3px;background:#eeeeee;border-radius:3px;margin-top:6px;overflow:hidden;}
-        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#66bb6a,#2e7d32);border-radius:3px;transition:width .85s linear;}
+        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#424242,#000000);border-radius:3px;transition:width .85s linear;}
         .${ucls('paused')}{font-size:9px;color:#9e9e9e;margin-top:4px;text-align:center;}
 
         .${ucls('codebox')}{
