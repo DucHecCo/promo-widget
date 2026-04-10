@@ -51,7 +51,7 @@
     const CLAIM_STORE_TTL = 3 * 60 * 1000;
 
     const CFG = {
-        btnLabel: 'Lấy Mã',
+        btnLabel: 'LẤY MÃ',
         btnColor: '#e53935',
         btnHover: '#b71c1c',
         codeLength: 10,
@@ -471,7 +471,7 @@
                 </div>
                 <button class="${ucls('nextbtn')}" id="${uid('n')}">
                     ${iconHtml}
-                    <span>Nhận Mã Ngay</span>
+                    <span>NHẬN MÃ NGAY</span>
                 </button>
             `;
 
