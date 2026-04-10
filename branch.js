@@ -444,7 +444,7 @@
                 </div>
                 <button class="${ucls('nextbtn')}" id="${uid('n')}">
                     ${iconHtml}
-                    <span>Nhận mã ngay</span>
+                    <span>Nhận Mã Ngay</span>
                 </button>
             `;
 
