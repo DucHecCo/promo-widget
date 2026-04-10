@@ -270,15 +270,16 @@
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
             let rem = seconds;
-            let paused = document.hidden;
             let ivId = null;
             const panelEl = activeWidget.panelEl;
 
-            const render = (r, isPaused) => {
+            const isPaused = () => document.hidden || !document.hasFocus();
+
+            const render = (r, paused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
                 const countdownHtml = `<div style="font-size:22px;font-weight:800;text-align:center;margin:4px 0;white-space:nowrap;">${r}</div>`;
                 const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
-                const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
+                const pausedHtml = paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
                 panelEl.className = ucls('panel');
                 panelEl.innerHTML = `
                     <div style="text-align:center;">
@@ -297,32 +298,58 @@
                     </div>`;
             };
 
-            const tick = () => {
-                rem--;
-                if (rem <= 0) {
-                    clearInterval(ivId);
-                    document.removeEventListener('visibilitychange', onVis);
-                    resolve();
-                } else {
-                    render(rem, false);
-                }
+            const stopTimer = () => {
+                if (ivId) { clearInterval(ivId); ivId = null; }
             };
 
-            const onVis = () => {
-                if (document.hidden) {
-                    paused = true;
-                    clearInterval(ivId);
+            const startTimer = () => {
+                if (ivId) return;
+                ivId = setInterval(() => {
+                    rem--;
+                    if (rem <= 0) {
+                        stopTimer();
+                        removeListeners();
+                        resolve();
+                    } else {
+                        render(rem, false);
+                    }
+                }, 1000);
+            };
+
+            const onVisible = () => {
+                if (isPaused()) {
+                    stopTimer();
                     render(rem, true);
                 } else {
-                    paused = false;
                     render(rem, false);
-                    ivId = setInterval(tick, 1000);
+                    startTimer();
                 }
             };
 
-            document.addEventListener('visibilitychange', onVis);
-            render(rem, paused);
-            if (!paused) ivId = setInterval(tick, 1000);
+            const onFocus = () => {
+                if (!isPaused()) {
+                    render(rem, false);
+                    startTimer();
+                }
+            };
+
+            const onBlur = () => {
+                stopTimer();
+                render(rem, true);
+            };
+
+            const removeListeners = () => {
+                document.removeEventListener('visibilitychange', onVisible);
+                window.removeEventListener('focus', onFocus);
+                window.removeEventListener('blur', onBlur);
+            };
+
+            document.addEventListener('visibilitychange', onVisible);
+            window.addEventListener('focus', onFocus);
+            window.addEventListener('blur', onBlur);
+
+            render(rem, isPaused());
+            if (!isPaused()) startTimer();
         });
     }
 
