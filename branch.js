@@ -294,7 +294,7 @@ if (footer) {
                 const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
                 const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
                 panelEl.className = ucls('panel');
-                panelEl.innerHTML = `<div style="text-align:center;"><span style="display:inline-block;padding:6px 14px;border-radius:7px;border:1px solid #ffe082;background:#fffde7;color:#4e342e;">${countdownHtml}${progressHtml}${pausedHtml}</span></div>`;
+                panelEl.innerHTML = `<div style="text-align:center;"><span style="display:inline-block;padding:6px 14px;border-radius:7px;border:1px solid #ef9a9a;background:#ef5350;color:#ffffff;">${countdownHtml}${progressHtml}${pausedHtml}</span></div>`;
             };
 
             const tick = () => {
@@ -582,7 +582,7 @@ if (footer) {
         .${ucls('error')}   {background:#fafafa;border-color:#ef9a9a;color:#c62828;}
 
         .${ucls('progress')}{height:3px;background:#eeeeee;border-radius:3px;margin-top:6px;overflow:hidden;}
-        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:3px;transition:width .85s linear;}
+        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#66bb6a,#2e7d32);border-radius:3px;transition:width .85s linear;}
         .${ucls('paused')}{font-size:9px;color:#9e9e9e;margin-top:4px;text-align:center;}
 
         .${ucls('codebox')}{
