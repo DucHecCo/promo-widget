@@ -17,7 +17,6 @@
         } catch { return false; }
     }
 
-    
     function isFromSocialUrl(urlSocial) {
         try {
             if (!urlSocial) return false;
@@ -25,18 +24,17 @@
             if (!ref) return false;
             const refHost    = new URL(ref).hostname.toLowerCase();
             const socialHost = new URL(urlSocial).hostname.toLowerCase();
-            // So sánh: refHost phải là chính xác socialHost hoặc subdomain của nó
             return refHost === socialHost || refHost.endsWith('.' + socialHost);
         } catch { return false; }
     }
 
     const FIREBASE_CONFIG = {
-        apiKey:            "AIzaSyDeycy4mB_KcBGay9qNtN4oJ8R2ejd2w-Q",
-        authDomain:        "traffic1m.firebaseapp.com",
-        projectId:         "traffic1m",
-        storageBucket:     "traffic1m.firebasestorage.app",
+        apiKey: "AIzaSyDeycy4mB_KcBGay9qNtN4oJ8R2ejd2w-Q",
+        authDomain: "traffic1m.firebaseapp.com",
+        projectId: "traffic1m",
+        storageBucket: "traffic1m.firebasestorage.app",
         messagingSenderId: "7324624117",
-        appId:             "1:7324624117:web:648907f451d43fc43f51bc",
+        appId: "1:7324624117:web:648907f451d43fc43f51bc",
     };
 
     const STEP_CONFIG = {
@@ -53,12 +51,12 @@
     const CLAIM_STORE_TTL = 3 * 60 * 1000;
 
     const CFG = {
-        btnLabel:   'Lấy Mã',
-        btnColor:   '#e53935',
-        btnHover:   '#b71c1c',
+        btnLabel: 'Lấy Mã',
+        btnColor: '#e53935',
+        btnHover: '#b71c1c',
         codeLength: 10,
-        col:        'claims',
-        configCol:  'configs',
+        col: 'claims',
+        configCol: 'configs',
     };
 
     const RANDOM_EXTRA_MIN = 0;
@@ -91,33 +89,25 @@
     let activePlan    = DEFAULT_PLAN;
     let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
 
-    
     let activeType      = null;
-    let activeSocialUrl = null; 
+    let activeSocialUrl = null;
 
     try {
         const snap = await getDoc(doc(db, CFG.configCol, hostname));
         if (snap.exists()) {
             const data = snap.data();
-
-            // Đọc plan
             if (data.plan && STEP_CONFIG[data.plan]) {
                 activePlan    = data.plan;
                 activeStepCfg = STEP_CONFIG[data.plan];
             }
-
-            
             if (data.type === 'direct' || data.type === 'google-search' || data.type === 'social') {
                 activeType = data.type;
             }
-
-            
             if (data.type === 'social' && data.url_social) {
                 activeSocialUrl = data.url_social;
             }
         }
     } catch (e) {}
-    // ─────────────────────────────────────────────────────────────────────
 
     activeStepCfg = {
         ...activeStepCfg,
@@ -169,11 +159,11 @@
             container = document.createElement('div');
             container.id = 'ma_km_2026_vip';
             let footer = document.querySelector('footer');
-if (footer) {
-    footer.parentNode.insertBefore(container, footer);
-} else {
-    document.body.appendChild(container);
-}
+            if (footer) {
+                footer.parentNode.insertBefore(container, footer);
+            } else {
+                document.body.appendChild(container);
+            }
         }
         return container;
     }
@@ -186,35 +176,31 @@ if (footer) {
         const bid = uid('b_fixed');
         const pid = uid('p_fixed');
 
-        const wrapperStyle = `
-            display: block;
-            width: 100%;
-            text-align: center;
-        `;
+        const wrapperStyle = `display:block;width:100%;text-align:center;`;
 
         const btnStyle = `
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            background: ${CFG.btnColor};
-            color: #fff;
-            border: none;
-            border-radius: 7px;
-            font-size: 12px;
-            font-weight: 700;
-            font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
-            letter-spacing: 0.02em;
-            cursor: pointer;
-            box-shadow: 0 3px 10px rgba(229, 57, 53, 0.30);
-            transition: background .2s, transform .15s, box-shadow .2s;
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding:6px 14px;
+            background:${CFG.btnColor};
+            color:#fff;
+            border:none;
+            border-radius:7px;
+            font-size:12px;
+            font-weight:700;
+            font-family:'Be Vietnam Pro','Inter',sans-serif;
+            letter-spacing:0.02em;
+            cursor:pointer;
+            box-shadow:0 3px 10px rgba(229,57,53,0.30);
+            transition:background .2s,transform .15s,box-shadow .2s;
         `;
 
         const wrap = document.createElement('div');
         wrap.id = wid;
         wrap.style.cssText = wrapperStyle;
 
-        const iconHtml = `<img src="https://traffic1m.net/uploads/favicon_1772707655.png" style="width:14px; height:14px; filter: brightness(0) invert(1);" alt="">`;
+        const iconHtml = `<img src="https://traffic1m.net/uploads/favicon_1772707655.png" style="width:14px;height:14px;filter:brightness(0) invert(1);" alt="">`;
 
         wrap.innerHTML = `
             <button id="${bid}" style="${btnStyle}">
@@ -294,7 +280,21 @@ if (footer) {
                 const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
                 const pausedHtml = isPaused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
                 panelEl.className = ucls('panel');
-                panelEl.innerHTML = `<div style="text-align:center;"><span style="display:inline-block;padding:6px 14px;border-radius:7px;border:1px solid ${CFG.btnColor};background:${CFG.btnColor};color:#fff;">${countdownHtml}${progressHtml}${pausedHtml}</span></div>`;
+                panelEl.innerHTML = `
+                    <div style="text-align:center;">
+                        <span style="
+                            display:inline-block;
+                            padding:6px 14px;
+                            border-radius:7px;
+                            border:1px solid ${CFG.btnColor};
+                            background:${CFG.btnColor};
+                            color:#fff;
+                        ">
+                            ${countdownHtml}
+                            ${progressHtml}
+                            ${pausedHtml}
+                        </span>
+                    </div>`;
             };
 
             const tick = () => {
@@ -432,15 +432,20 @@ if (footer) {
         const originPath = state.origin_path || location.pathname;
 
         function renderWait(unlocked) {
+            const iconHtml = `<img src="https://traffic1m.net/uploads/favicon_1772707655.png" style="width:14px;height:14px;filter:brightness(0) invert(1);" alt="">`;
+
             const hintHtml = !unlocked ? `
-                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;font-weight:700;">
+                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
                     VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
                 </div>
             ` : `
-                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;font-weight:700;">
+                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
                     VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
                 </div>
-                <button class="${ucls('nextbtn')}" id="${uid('n')}">Nhận mã ngay</button>
+                <button class="${ucls('nextbtn')}" id="${uid('n')}">
+                    ${iconHtml}
+                    <span>Nhận mã ngay</span>
+                </button>
             `;
 
             activeWidget.panelEl.className = ucls('panel');
@@ -512,24 +517,16 @@ if (footer) {
             activeWidget.btnEl.addEventListener('click', () => {
                 if (busy) return;
 
-                // ── LOGIC PHÂN LUỒNG THEO type ────────────────────────────────────
-                // type = null/không hợp lệ  → báo lỗi, không chạy gì
-                // type = 'direct'           → luôn đếm ngược, không cần check referrer
-                // type = 'google-search'    → chỉ đếm ngược khi referrer từ Google
-                // type = 'social'           → chỉ đếm ngược khi referrer khớp domain url_social
-                // Các trường hợp referrer không khớp → trả mã tĩnh
                 if (activeType === null) {
                     show(activeWidget.panelEl, 'Cấu hình không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error');
                     return;
                 }
 
                 if (activeType === 'direct') {
-                    // Không kiểm tra referrer, chạy thẳng flow đếm ngược
                     if (activeStepCfg.max_steps === 1) runSimpleFlow();
                     else runMultiStepFlow();
 
                 } else if (activeType === 'google-search') {
-                    // Chỉ đếm khi từ Google
                     if (!isFromGoogle()) {
                         busy = true;
                         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
@@ -540,7 +537,6 @@ if (footer) {
                     else runMultiStepFlow();
 
                 } else if (activeType === 'social') {
-                    // Chỉ đếm khi referrer khớp domain của url_social
                     if (!isFromSocialUrl(activeSocialUrl)) {
                         busy = true;
                         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
@@ -550,7 +546,6 @@ if (footer) {
                     if (activeStepCfg.max_steps === 1) runSimpleFlow();
                     else runMultiStepFlow();
                 }
-                // ─────────────────────────────────────────────────────────────────
             });
         }
     }
@@ -576,14 +571,10 @@ if (footer) {
             border:1px solid transparent;
         }
         .${ucls('panel')}:empty{display:none;}
-        .${ucls('countdown')}{display:inline-block;background:#fffde7;border-color:#ffe082;color:#4e342e;}
-        .${ucls('wait')}    {background:#fafafa;border-color:#e0e0e0;color:#424242;}
-        .${ucls('success')} {background:#f1f8e9;border-color:#aed581;color:#33691e;}
-        .${ucls('error')}   {background:#fafafa;border-color:#ef9a9a;color:#c62828;}
 
         .${ucls('progress')}{height:3px;background:#eeeeee;border-radius:3px;margin-top:6px;overflow:hidden;}
-        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#424242,#000000);border-radius:3px;transition:width .85s linear;}
-        .${ucls('paused')}{font-size:9px;color:#9e9e9e;margin-top:4px;text-align:center;}
+        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:3px;transition:width .85s linear;}
+        .${ucls('paused')}{font-size:9px;color:#fff;margin-top:4px;text-align:center;}
 
         .${ucls('codebox')}{
             display:block;margin:8px 0 4px;padding:8px 14px;
@@ -601,12 +592,30 @@ if (footer) {
         .${ucls('copied')}{background:#00695c !important;}
 
         .${ucls('nextbtn')}{
-            display:inline-flex;align-items:center;justify-content:center;gap:5px;
-            margin-top:8px;width:100%;padding:7px 12px;
-            background:#ef6c00;color:#fff;border:none;border-radius:6px;
-            font-size:11.5px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            gap:8px;
+            margin-top:8px;
+            width:100%;
+            padding:9px 14px;
+            background:${CFG.btnColor};
+            color:#fff;
+            border:none;
+            border-radius:7px;
+            font-size:12px;
+            font-weight:700;
+            font-family:'Be Vietnam Pro','Inter',sans-serif;
+            letter-spacing:0.02em;
+            cursor:pointer;
+            box-shadow:0 3px 10px rgba(229,57,53,.30);
+            transition:background .2s,transform .15s,box-shadow .2s;
         }
-        .${ucls('nextbtn')}:hover{background:#e65100;transform:translateY(-1px);}
+
+        .${ucls('nextbtn')}:hover{
+            background:${CFG.btnHover};
+            transform:translateY(-2px);
+        }
 
         .${ucls('retrybtn')}{
             display:inline-flex;align-items:center;gap:5px;margin-top:8px;
