@@ -147,9 +147,11 @@
         wrap.style.cssText = 'display:block;width:100%;text-align:center;';
         wrap.innerHTML = `
             <button id="${bid}" style="${btnStyle}">
+                <img src="https://traffic1m.net/uploads/favicon_1772707655.png"
+                     style="width:13px;height:13px;filter:brightness(0) invert(1);" alt="">
                 <span>${CFG.btnLabel}</span>
             </button>
-            <div id="${pid}" class="${ucls('panel')}" style="margin-top:8px;"></div>
+            <div id="${pid}" class="${ucls('panel')}" style="margin-top:10px;"></div>
         `;
 
         container.appendChild(wrap);
@@ -172,18 +174,20 @@
     }
 
     function wrapCenter(innerHtml) {
-        return `<div style="display:flex;justify-content:center;">${innerHtml}</div>`;
+        return `<div style="display:flex;justify-content:center;"><div class="${ucls('card')}">${innerHtml}</div></div>`;
+    }
+
+    function wrapCenterSmall(innerHtml) {
+        return `<div style="display:flex;justify-content:center;"><div class="${ucls('card_sm')}">${innerHtml}</div></div>`;
     }
 
     function showCodeUI(panelEl, code) {
         const cid = uid('c');
         panelEl.className = ucls('panel');
         panelEl.innerHTML = wrapCenter(`
-            <div class="${ucls('codewrap')}">
-                <div class="${ucls('code_label')}">Mã của bạn</div>
-                <div class="${ucls('codebox')}">${code}</div>
-                <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
-            </div>
+            <div class="${ucls('code_label')}">Mã của bạn</div>
+            <div class="${ucls('codebox')}">${code}</div>
+            <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
         `);
         document.getElementById(cid)?.addEventListener('click', () =>
             copyText(code, document.getElementById(cid))
@@ -200,10 +204,8 @@
     function showMsgWithBtn(panelEl, text, type, btnId, btnLabel) {
         panelEl.className = ucls('panel');
         panelEl.innerHTML = wrapCenter(`
-            <div class="${ucls('inline_wrap')}">
-                <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
-                <button class="${ucls('retrybtn')}" id="${btnId}">${btnLabel}</button>
-            </div>
+            <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
+            <button class="${ucls('retrybtn')}" id="${btnId}">${btnLabel}</button>
         `);
     }
 
@@ -236,12 +238,10 @@
             const render = (r, paused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
                 panelEl.className = ucls('panel');
-                panelEl.innerHTML = wrapCenter(`
-                    <div class="${ucls('cd_wrap')}">
-                        <span class="${ucls('countdown_num')}">${r}</span>
-                        <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
-                        ${paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục</div>` : ''}
-                    </div>
+                panelEl.innerHTML = wrapCenterSmall(`
+                    <div class="${ucls('countdown_num')}">${r}</div>
+                    <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
+                    ${paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục</div>` : '<div class="' + ucls('paused') + '" style="opacity:0">·</div>'}
                 `);
             };
 
@@ -387,10 +387,8 @@
             const nid = uid('n');
             activeWidget.panelEl.className = ucls('panel');
             activeWidget.panelEl.innerHTML = wrapCenter(`
-                <div class="${ucls('inline_wrap')}">
-                    <div class="${ucls('msg_text')} ${ucls('msg_info')}">Vui lòng click vào link bất kỳ trên website để nhận mã!</div>
-                    ${unlocked ? `<button class="${ucls('nextbtn')}" id="${nid}">NHẬN MÃ NGAY</button>` : ''}
-                </div>
+                <div class="${ucls('msg_text')} ${ucls('msg_info')}">Vui lòng click vào link bất kỳ trên website để nhận mã!</div>
+                ${unlocked ? `<button class="${ucls('nextbtn')}" id="${nid}">NHẬN MÃ NGAY</button>` : ''}
             `);
             if (unlocked) {
                 document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
@@ -503,7 +501,7 @@
         }
 
         [id^="${_p}-b_"]{
-            display:inline-flex;align-items:center;
+            display:inline-flex;align-items:center;gap:6px;
             background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
             font-weight:700;cursor:pointer;-webkit-appearance:none;
             transition:background .2s,transform .15s;
@@ -518,18 +516,32 @@
         }
         .${ucls('panel')}:empty{display:none;}
 
-        .${ucls('codewrap')}{
-            display:inline-flex;
-            flex-direction:column;
-            align-items:center;
-            gap:5px;
-        }
-
-        .${ucls('inline_wrap')}{
+        .${ucls('card')}{
             display:inline-flex;
             flex-direction:column;
             align-items:center;
             gap:6px;
+            padding:10px 16px;
+            border-radius:10px;
+            background:#fafafa;
+            border:1px solid #eeeeee;
+            min-width:0;
+            max-width:260px;
+            width:100%;
+        }
+
+        .${ucls('card_sm')}{
+            display:inline-flex;
+            flex-direction:column;
+            align-items:center;
+            gap:3px;
+            padding:5px 10px;
+            border-radius:8px;
+            background:#fafafa;
+            border:1px solid #eeeeee;
+            min-width:0;
+            max-width:130px;
+            width:100%;
         }
 
         .${ucls('code_label')}{
@@ -538,7 +550,7 @@
         }
         .${ucls('codebox')}{
             display:block;
-            padding:4px 14px;
+            padding:5px 12px;
             background:#f1f8e9;
             border:1.5px dashed #aed581;
             border-radius:6px;
@@ -549,7 +561,7 @@
         }
         .${ucls('copybtn')}{
             display:inline-flex;align-items:center;justify-content:center;
-            padding:4px 14px;
+            width:100%;padding:5px 10px;
             background:#558b2f;color:#fff;border:none;border-radius:6px;
             font-size:11px;font-weight:700;cursor:pointer;
             transition:background .2s;
@@ -557,23 +569,16 @@
         .${ucls('copybtn')}:hover{background:#33691e;}
         .${ucls('copied')}{background:#00695c !important;}
 
-        .${ucls('cd_wrap')}{
-            display:inline-flex;
-            flex-direction:column;
-            align-items:center;
-            gap:4px;
-        }
-
         .${ucls('countdown_num')}{
-            font-size:15px;font-weight:800;color:#fff;
+            font-size:18px;font-weight:800;color:#fff;
             background:${CFG.btnColor};
-            border-radius:6px;
-            padding:2px 10px;
+            border-radius:5px;
+            padding:1px 12px;
             line-height:1.4;
             letter-spacing:0.02em;
         }
         .${ucls('progress')}{
-            width:80px;height:2px;
+            width:100%;height:2px;
             background:#e0e0e0;border-radius:2px;overflow:hidden;
         }
         .${ucls('bar')}{
@@ -596,7 +601,7 @@
         .${ucls('nextbtn')},
         .${ucls('retrybtn')}{
             display:inline-flex;align-items:center;justify-content:center;
-            padding:5px 14px;
+            width:100%;padding:6px 12px;
             border:none;border-radius:6px;
             font-size:11px;font-weight:700;cursor:pointer;
             transition:background .2s,transform .15s;
