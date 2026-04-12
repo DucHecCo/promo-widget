@@ -4,9 +4,6 @@
     const uid  = name => `${_p}-${name}`;
     const ucls = name => `${_p}_${name}`;
 
-    // -----------------------------------------------------------------------
-    // Cấu hình API endpoint (thay Firebase)
-    // -----------------------------------------------------------------------
     const API = 'https://traffic1m.net/get-code';
 
     async function apiCall(action, payload = {}) {
@@ -21,9 +18,6 @@
         return json.data;
     }
 
-    // -----------------------------------------------------------------------
-    // Static code fallback (khi không đủ điều kiện traffic)
-    // -----------------------------------------------------------------------
     function getStaticCode() {
         return 'XINCHAO2026';
     }
@@ -48,9 +42,6 @@
         } catch { return false; }
     }
 
-    // -----------------------------------------------------------------------
-    // Step config
-    // -----------------------------------------------------------------------
     const STEP_CONFIG = {
         '1step_60':  { max_steps: 1, countdown_times: [60]      },
         '1step_90':  { max_steps: 1, countdown_times: [90]      },
@@ -81,9 +72,6 @@
         return times.map(t => t + randomExtra());
     }
 
-    // -----------------------------------------------------------------------
-    // Lấy cấu hình site từ server
-    // -----------------------------------------------------------------------
     const hostname = window.location.hostname;
     let activePlan    = DEFAULT_PLAN;
     let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
@@ -109,9 +97,6 @@
         countdown_times: applyRandomToTimes(activeStepCfg.countdown_times),
     };
 
-    // -----------------------------------------------------------------------
-    // Session state (localStorage)
-    // -----------------------------------------------------------------------
     const saveState  = v => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({
         ...v, _savedAt: Date.now(),
     }));
@@ -128,9 +113,6 @@
     };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
 
-    // -----------------------------------------------------------------------
-    // DOM
-    // -----------------------------------------------------------------------
     function getFixedContainer() {
         let container = document.getElementById('ma_km_2026_vip');
         if (!container) {
@@ -152,12 +134,12 @@
         const pid = uid('p_fixed');
 
         const btnStyle = `
-            display:inline-flex;align-items:center;gap:8px;padding:6px 14px;
+            display:inline-flex;align-items:center;gap:6px;padding:7px 16px;
             background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
             font-size:12px;font-weight:700;font-family:'Be Vietnam Pro','Inter',sans-serif;
-            letter-spacing:0.02em;cursor:pointer;
-            box-shadow:0 3px 10px rgba(229,57,53,0.30);
-            transition:background .2s,transform .15s,box-shadow .2s;
+            letter-spacing:0.04em;cursor:pointer;
+            box-shadow:0 2px 8px rgba(229,57,53,0.28);
+            transition:background .2s,transform .15s;
         `;
 
         const wrap = document.createElement('div');
@@ -166,10 +148,10 @@
         wrap.innerHTML = `
             <button id="${bid}" style="${btnStyle}">
                 <img src="https://traffic1m.net/uploads/favicon_1772707655.png"
-                     style="width:14px;height:14px;filter:brightness(0) invert(1);" alt="">
+                     style="width:13px;height:13px;filter:brightness(0) invert(1);" alt="">
                 <span>${CFG.btnLabel}</span>
             </button>
-            <div id="${pid}" class="${ucls('panel')}" style="margin-top:12px;"></div>
+            <div id="${pid}" class="${ucls('panel')}" style="margin-top:10px;"></div>
         `;
 
         container.appendChild(wrap);
@@ -186,31 +168,43 @@
     activeWidget = createWidgetInContainer();
     if (!activeWidget) return;
 
-    // -----------------------------------------------------------------------
-    // UI helpers
-    // -----------------------------------------------------------------------
     function hidePanel(panelEl) {
         panelEl.className = ucls('panel');
         panelEl.innerHTML = '';
     }
 
-    function show(panelEl, html, type) {
-        panelEl.className = `${ucls('panel')} ${ucls(type)}`;
-        panelEl.innerHTML = html;
+    function wrapCenter(innerHtml) {
+        return `<div style="display:flex;justify-content:center;"><div class="${ucls('card')}">${innerHtml}</div></div>`;
     }
 
     function showCodeUI(panelEl, code) {
         const cid = uid('c');
-        show(panelEl, `
-            <div style="text-align:center;font-size:11px;margin-bottom:2px;color:#558b2f;font-weight:600;">Mã của bạn</div>
-            <span class="${ucls('codebox')}">${code}</span>
-            <div style="text-align:center">
-                <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
-            </div>
-        `, 'success');
+        panelEl.className = ucls('panel');
+        panelEl.innerHTML = wrapCenter(`
+            <div class="${ucls('code_label')}">Mã của bạn</div>
+            <div class="${ucls('codebox')}">${code}</div>
+            <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
+        `);
         document.getElementById(cid)?.addEventListener('click', () =>
             copyText(code, document.getElementById(cid))
         );
+    }
+
+    function showMsgUI(panelEl, icon, text, type) {
+        panelEl.className = ucls('panel');
+        panelEl.innerHTML = wrapCenter(`
+            <div class="${ucls('msg_icon')}">${icon}</div>
+            <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
+        `);
+    }
+
+    function showMsgWithBtn(panelEl, icon, text, type, btnId, btnLabel) {
+        panelEl.className = ucls('panel');
+        panelEl.innerHTML = wrapCenter(`
+            <div class="${ucls('msg_icon')}">${icon}</div>
+            <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
+            <button class="${ucls('retrybtn')}" id="${btnId}">${btnLabel}</button>
+        `);
     }
 
     function broadcastCodeUI(code) {
@@ -231,9 +225,6 @@
         });
     }
 
-    // -----------------------------------------------------------------------
-    // Countdown
-    // -----------------------------------------------------------------------
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
             let rem = seconds;
@@ -245,15 +236,11 @@
             const render = (r, paused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
                 panelEl.className = ucls('panel');
-                panelEl.innerHTML = `
-                    <div style="text-align:center;">
-                        <span style="display:inline-block;padding:6px 14px;border-radius:7px;
-                            border:1px solid ${CFG.btnColor};background:${CFG.btnColor};color:#fff;">
-                            <div style="font-size:22px;font-weight:800;text-align:center;margin:4px 0;white-space:nowrap;">${r}</div>
-                            <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
-                            ${paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : ''}
-                        </span>
-                    </div>`;
+                panelEl.innerHTML = wrapCenter(`
+                    <div class="${ucls('countdown_num')}">${r}</div>
+                    <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
+                    ${paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục</div>` : '<div class="' + ucls('paused') + '" style="opacity:0">·</div>'}
+                `);
             };
 
             const stopTimer  = () => { if (ivId) { clearInterval(ivId); ivId = null; } };
@@ -285,9 +272,6 @@
         });
     }
 
-    // -----------------------------------------------------------------------
-    // Finalize — gọi API lấy mã
-    // -----------------------------------------------------------------------
     async function finalizeAndShow(state, stepTimestamps) {
         hidePanel(activeWidget.panelEl);
         const claimedAtMs = Date.now();
@@ -305,18 +289,16 @@
             broadcastCodeUI(result.code);
         } catch (e) {
             const rid = uid('r');
-            show(activeWidget.panelEl, `Không lưu được mã. Vui lòng thử lại.
-                <div style="text-align:center;margin-top:8px">
-                    <button class="${ucls('retrybtn')}" id="${rid}">Thử lại</button>
-                </div>`, 'error');
+            showMsgWithBtn(
+                activeWidget.panelEl,
+                '⚠️', 'Không lưu được mã. Vui lòng thử lại.', 'warn',
+                rid, 'Thử lại'
+            );
             document.getElementById(rid)?.addEventListener('click',
                 () => finalizeAndShow(state, stepTimestamps));
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Simple flow (1 bước)
-    // -----------------------------------------------------------------------
     async function runSimpleFlow() {
         busy = true;
         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
@@ -338,20 +320,14 @@
             });
             docId = result.docId;
         } catch (e) {
-            show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
+            showMsgUI(activeWidget.panelEl, '❌', 'Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
         }
 
         await countdown(0, 1, activeStepCfg.countdown_times[0]);
-        await finalizeAndShow(
-            { docId, max_steps: 1 },
-            stepTimestamps
-        );
+        await finalizeAndShow({ docId, max_steps: 1 }, stepTimestamps);
     }
 
-    // -----------------------------------------------------------------------
-    // Multi-step flow (2+ bước)
-    // -----------------------------------------------------------------------
     async function runMultiStepFlow() {
         busy = true;
         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
@@ -372,7 +348,7 @@
             });
             docId = result.docId;
         } catch (e) {
-            show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
+            showMsgUI(activeWidget.panelEl, '❌', 'Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
         }
 
@@ -401,31 +377,18 @@
         showWaitNextPage(state);
     }
 
-    // -----------------------------------------------------------------------
-    // Chờ sang trang (step 2)
-    // -----------------------------------------------------------------------
     function showWaitNextPage(state) {
         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
         const originPath = state.origin_path || location.pathname;
-        const iconHtml = `<img src="https://traffic1m.net/uploads/favicon_1772707655.png"
-            style="width:14px;height:14px;filter:brightness(0) invert(1);" alt="">`;
 
         function renderWait(unlocked) {
             const nid = uid('n');
-            const hintHtml = `
-                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
-                    VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
-                </div>
-                ${unlocked ? `<button class="${ucls('nextbtn')}" id="${nid}">${iconHtml}<span>NHẬN MÃ NGAY</span></button>` : ''}
-            `;
             activeWidget.panelEl.className = ucls('panel');
-            activeWidget.panelEl.innerHTML = `
-                <div style="text-align:center;">
-                    <span style="display:inline-block;padding:6px 14px;border-radius:7px;
-                        border:1px solid #e0e0e0;background:#fafafa;color:#424242;font-size:10px;">
-                        ${hintHtml}
-                    </span>
-                </div>`;
+            activeWidget.panelEl.innerHTML = wrapCenter(`
+                <div class="${ucls('msg_icon')}">👆</div>
+                <div class="${ucls('msg_text')} ${ucls('msg_info')}">Vui lòng click vào link bất kỳ trên website để nhận mã!</div>
+                ${unlocked ? `<button class="${ucls('nextbtn')}" id="${nid}">NHẬN MÃ NGAY</button>` : ''}
+            `);
             if (unlocked) {
                 document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
             }
@@ -480,9 +443,6 @@
         );
     }
 
-    // -----------------------------------------------------------------------
-    // Resume (reload trang giữa chừng)
-    // -----------------------------------------------------------------------
     function handleResume(state) {
         busy = true;
         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
@@ -490,9 +450,6 @@
         else { clearState(); busy = false; }
     }
 
-    // -----------------------------------------------------------------------
-    // Khởi động
-    // -----------------------------------------------------------------------
     const pending = loadState();
     if (pending && pending.hostname === hostname) {
         handleResume(pending);
@@ -501,7 +458,10 @@
             if (busy) return;
 
             if (activeType === null) {
-                show(activeWidget.panelEl, 'Cấu hình không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error');
+                showMsgUI(
+                    activeWidget.panelEl,
+                    '⚙️', 'Cấu hình không hợp lệ.<br>Vui lòng liên hệ quản trị viên.', 'error'
+                );
                 return;
             }
 
@@ -531,66 +491,119 @@
         });
     }
 
-    // -----------------------------------------------------------------------
-    // CSS
-    // -----------------------------------------------------------------------
     document.head.insertAdjacentHTML('beforeend', `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
 
-        [id^="${_p}-w_"],[id^="${_p}-w_"] *{box-sizing:border-box;font-family:'Be Vietnam Pro',sans-serif;}
+        [id^="${_p}-w_"],[id^="${_p}-w_"] *{
+            box-sizing:border-box;
+            font-family:'Be Vietnam Pro',sans-serif;
+        }
 
         [id^="${_p}-b_"]{
             display:inline-flex;align-items:center;gap:6px;
-            background:${CFG.btnColor};color:#fff;border:none;border-radius:8px;
+            background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
             font-weight:700;cursor:pointer;-webkit-appearance:none;
-            transition:background .2s,transform .15s,box-shadow .2s;
-            box-shadow:0 3px 10px rgba(229,57,53,.30);
-            padding:9px 22px;font-size:13px;
+            transition:background .2s,transform .15s;
+            box-shadow:0 2px 8px rgba(229,57,53,.28);
+            padding:7px 16px;font-size:12px;letter-spacing:0.04em;
         }
-        [id^="${_p}-b_"]:hover{background:${CFG.btnHover};transform:translateY(-2px);}
+        [id^="${_p}-b_"]:hover{background:${CFG.btnHover};transform:translateY(-1px);}
 
         .${ucls('panel')}{
-            margin-top:8px;padding:6px 10px;border-radius:7px;font-size:10px;
-            line-height:1.4;word-break:break-word;text-align:left;
-            border:1px solid transparent;
+            margin-top:8px;
+            text-align:center;
         }
         .${ucls('panel')}:empty{display:none;}
 
-        .${ucls('progress')}{height:3px;background:#eeeeee;border-radius:3px;margin-top:6px;overflow:hidden;}
-        .${ucls('bar')}{height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);border-radius:3px;transition:width .85s linear;}
-        .${ucls('paused')}{font-size:9px;color:#fff;margin-top:4px;text-align:center;}
+        .${ucls('card')}{
+            display:inline-flex;
+            flex-direction:column;
+            align-items:center;
+            gap:6px;
+            padding:10px 16px;
+            border-radius:10px;
+            background:#fafafa;
+            border:1px solid #eeeeee;
+            min-width:0;
+            max-width:260px;
+            width:100%;
+        }
 
+        .${ucls('code_label')}{
+            font-size:10px;font-weight:600;color:#558b2f;
+            letter-spacing:0.03em;
+        }
         .${ucls('codebox')}{
-            display:block;margin:8px 0 4px;padding:8px 14px;
-            background:#f9fbe7;border:1.5px dashed #aed581;border-radius:6px;
-            font-size:20px;font-weight:800;letter-spacing:4px;color:#33691e;
-            font-family:'Courier New',monospace;text-align:center;
+            display:block;
+            padding:5px 12px;
+            background:#f1f8e9;
+            border:1.5px dashed #aed581;
+            border-radius:6px;
+            font-size:18px;font-weight:800;
+            letter-spacing:3px;color:#33691e;
+            font-family:'Courier New',monospace;
+            white-space:nowrap;
         }
         .${ucls('copybtn')}{
-            display:inline-flex;align-items:center;gap:5px;margin-top:8px;
-            padding:6px 14px;background:#558b2f;color:#fff;border:none;border-radius:6px;
-            font-size:11px;font-weight:700;cursor:pointer;transition:background .2s;
-            width:100%;justify-content:center;
+            display:inline-flex;align-items:center;justify-content:center;
+            width:100%;padding:5px 10px;
+            background:#558b2f;color:#fff;border:none;border-radius:6px;
+            font-size:11px;font-weight:700;cursor:pointer;
+            transition:background .2s;
         }
         .${ucls('copybtn')}:hover{background:#33691e;}
         .${ucls('copied')}{background:#00695c !important;}
 
-        .${ucls('nextbtn')}{
-            display:inline-flex;align-items:center;justify-content:center;gap:8px;
-            margin-top:8px;width:100%;padding:9px 14px;
-            background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
-            font-size:12px;font-weight:700;font-family:'Be Vietnam Pro','Inter',sans-serif;
-            letter-spacing:0.02em;cursor:pointer;
-            box-shadow:0 3px 10px rgba(229,57,53,.30);
-            transition:background .2s,transform .15s,box-shadow .2s;
+        .${ucls('countdown_num')}{
+            font-size:24px;font-weight:800;color:#fff;
+            background:${CFG.btnColor};
+            border-radius:8px;
+            padding:4px 18px;
+            line-height:1.3;
+            letter-spacing:0.02em;
         }
-        .${ucls('nextbtn')}:hover{background:${CFG.btnHover};transform:translateY(-2px);}
+        .${ucls('progress')}{
+            width:100%;height:3px;
+            background:#e0e0e0;border-radius:3px;overflow:hidden;
+        }
+        .${ucls('bar')}{
+            height:100%;
+            background:linear-gradient(90deg,#ffcc80,#ffa726);
+            border-radius:3px;transition:width .85s linear;
+        }
+        .${ucls('paused')}{
+            font-size:9px;color:#9e9e9e;
+        }
 
-        .${ucls('retrybtn')}{
-            display:inline-flex;align-items:center;gap:5px;margin-top:8px;
-            padding:6px 14px;background:#e53935;color:#fff;border:none;border-radius:6px;
-            font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;
+        .${ucls('msg_icon')}{
+            font-size:18px;line-height:1;
         }
-        .${ucls('retrybtn')}:hover{background:#b71c1c;}
+        .${ucls('msg_text')}{
+            font-size:11px;font-weight:600;line-height:1.45;
+            text-align:center;
+        }
+        .${ucls('msg_error')} { color:#c62828; }
+        .${ucls('msg_warn')}  { color:#e65100; }
+        .${ucls('msg_info')}  { color:#1565c0; }
+
+        .${ucls('nextbtn')},
+        .${ucls('retrybtn')}{
+            display:inline-flex;align-items:center;justify-content:center;
+            width:100%;padding:6px 12px;
+            border:none;border-radius:6px;
+            font-size:11px;font-weight:700;cursor:pointer;
+            transition:background .2s,transform .15s;
+            letter-spacing:0.03em;
+        }
+        .${ucls('nextbtn')}{
+            background:${CFG.btnColor};color:#fff;
+            box-shadow:0 2px 6px rgba(229,57,53,.25);
+        }
+        .${ucls('nextbtn')}:hover{background:${CFG.btnHover};transform:translateY(-1px);}
+        .${ucls('retrybtn')}{
+            background:#fff;color:${CFG.btnColor};
+            border:1.5px solid ${CFG.btnColor};
+        }
+        .${ucls('retrybtn')}:hover{background:#fff3f3;}
     </style>`);
 })();
