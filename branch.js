@@ -4,6 +4,26 @@
     const uid  = name => `${_p}-${name}`;
     const ucls = name => `${_p}_${name}`;
 
+    // -----------------------------------------------------------------------
+    // Cấu hình API endpoint (thay Firebase)
+    // -----------------------------------------------------------------------
+    const API = 'https://traffic1m.net/get-code';
+
+    async function apiCall(action, payload = {}) {
+        const res = await fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...payload }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || 'API error');
+        return json.data;
+    }
+
+    // -----------------------------------------------------------------------
+    // Static code fallback (khi không đủ điều kiện traffic)
+    // -----------------------------------------------------------------------
     function getStaticCode() {
         return 'XINCHAO2026';
     }
@@ -28,15 +48,9 @@
         } catch { return false; }
     }
 
-    const FIREBASE_CONFIG = {
-        apiKey: "AIzaSyDeycy4mB_KcBGay9qNtN4oJ8R2ejd2w-Q",
-        authDomain: "traffic1m.firebaseapp.com",
-        projectId: "traffic1m",
-        storageBucket: "traffic1m.firebasestorage.app",
-        messagingSenderId: "7324624117",
-        appId: "1:7324624117:web:648907f451d43fc43f51bc",
-    };
-
+    // -----------------------------------------------------------------------
+    // Step config
+    // -----------------------------------------------------------------------
     const STEP_CONFIG = {
         '1step_60':  { max_steps: 1, countdown_times: [60]      },
         '1step_90':  { max_steps: 1, countdown_times: [90]      },
@@ -54,9 +68,6 @@
         btnLabel: 'LẤY MÃ',
         btnColor: '#e53935',
         btnHover: '#b71c1c',
-        codeLength: 10,
-        col: 'claims',
-        configCol: 'configs',
     };
 
     const RANDOM_EXTRA_MIN = 0;
@@ -70,42 +81,26 @@
         return times.map(t => t + randomExtra());
     }
 
-    let db, FS;
-    try {
-        const { initializeApp, getApps, getApp } =
-            await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-        const { getFirestore, collection, addDoc, updateDoc, doc, getDoc,
-                query, where, getDocs, Timestamp } =
-            await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
-        db = getFirestore(app);
-        FS = { collection, addDoc, updateDoc, doc, getDoc, query, where, getDocs, Timestamp };
-    } catch (e) { return; }
-
-    const { collection, addDoc, updateDoc, doc, getDoc,
-            query, where, getDocs, Timestamp } = FS;
-
+    // -----------------------------------------------------------------------
+    // Lấy cấu hình site từ server
+    // -----------------------------------------------------------------------
     const hostname = window.location.hostname;
     let activePlan    = DEFAULT_PLAN;
     let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
-
     let activeType      = null;
     let activeSocialUrl = null;
 
     try {
-        const snap = await getDoc(doc(db, CFG.configCol, hostname));
-        if (snap.exists()) {
-            const data = snap.data();
-            if (data.plan && STEP_CONFIG[data.plan]) {
-                activePlan    = data.plan;
-                activeStepCfg = STEP_CONFIG[data.plan];
-            }
-            if (data.type === 'direct' || data.type === 'google-search' || data.type === 'social') {
-                activeType = data.type;
-            }
-            if (data.type === 'social' && data.url_social) {
-                activeSocialUrl = data.url_social;
-            }
+        const cfg = await apiCall('get_config', { hostname });
+        if (cfg && cfg.plan && STEP_CONFIG[cfg.plan]) {
+            activePlan    = cfg.plan;
+            activeStepCfg = STEP_CONFIG[cfg.plan];
+        }
+        if (cfg && (cfg.type === 'direct' || cfg.type === 'google-search' || cfg.type === 'social')) {
+            activeType = cfg.type;
+        }
+        if (cfg && cfg.type === 'social' && cfg.url_social) {
+            activeSocialUrl = cfg.url_social;
         }
     } catch (e) {}
 
@@ -114,31 +109,11 @@
         countdown_times: applyRandomToTimes(activeStepCfg.countdown_times),
     };
 
-    function genCode(n) {
-        const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', a = new Uint8Array(n);
-        crypto.getRandomValues(a);
-        return Array.from(a, b => c[b % c.length]).join('');
-    }
-
-    async function genUniqueCode(maxTries = 8) {
-        for (let i = 0; i < maxTries; i++) {
-            const code = genCode(CFG.codeLength);
-            try {
-                const snap = await getDocs(
-                    query(collection(db, CFG.col), where('code', '==', code))
-                );
-                if (snap.empty) return code;
-            } catch (e) {
-                return genCode(CFG.codeLength);
-            }
-        }
-        const ts = Date.now().toString(36).toUpperCase().slice(-4);
-        return genCode(CFG.codeLength - 4) + ts;
-    }
-
+    // -----------------------------------------------------------------------
+    // Session state (localStorage)
+    // -----------------------------------------------------------------------
     const saveState  = v => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({
-        ...v,
-        _savedAt: Date.now(),
+        ...v, _savedAt: Date.now(),
     }));
     const loadState  = () => {
         try {
@@ -153,17 +128,17 @@
     };
     const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
 
+    // -----------------------------------------------------------------------
+    // DOM
+    // -----------------------------------------------------------------------
     function getFixedContainer() {
         let container = document.getElementById('ma_km_2026_vip');
         if (!container) {
             container = document.createElement('div');
             container.id = 'ma_km_2026_vip';
-            let footer = document.querySelector('footer');
-            if (footer) {
-                footer.parentNode.insertBefore(container, footer);
-            } else {
-                document.body.appendChild(container);
-            }
+            const footer = document.querySelector('footer');
+            if (footer) footer.parentNode.insertBefore(container, footer);
+            else document.body.appendChild(container);
         }
         return container;
     }
@@ -176,35 +151,22 @@
         const bid = uid('b_fixed');
         const pid = uid('p_fixed');
 
-        const wrapperStyle = `display:block;width:100%;text-align:center;`;
-
         const btnStyle = `
-            display:inline-flex;
-            align-items:center;
-            gap:8px;
-            padding:6px 14px;
-            background:${CFG.btnColor};
-            color:#fff;
-            border:none;
-            border-radius:7px;
-            font-size:12px;
-            font-weight:700;
-            font-family:'Be Vietnam Pro','Inter',sans-serif;
-            letter-spacing:0.02em;
-            cursor:pointer;
+            display:inline-flex;align-items:center;gap:8px;padding:6px 14px;
+            background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
+            font-size:12px;font-weight:700;font-family:'Be Vietnam Pro','Inter',sans-serif;
+            letter-spacing:0.02em;cursor:pointer;
             box-shadow:0 3px 10px rgba(229,57,53,0.30);
             transition:background .2s,transform .15s,box-shadow .2s;
         `;
 
         const wrap = document.createElement('div');
         wrap.id = wid;
-        wrap.style.cssText = wrapperStyle;
-
-        const iconHtml = `<img src="https://traffic1m.net/uploads/favicon_1772707655.png" style="width:14px;height:14px;filter:brightness(0) invert(1);" alt="">`;
-
+        wrap.style.cssText = 'display:block;width:100%;text-align:center;';
         wrap.innerHTML = `
             <button id="${bid}" style="${btnStyle}">
-                ${iconHtml}
+                <img src="https://traffic1m.net/uploads/favicon_1772707655.png"
+                     style="width:14px;height:14px;filter:brightness(0) invert(1);" alt="">
                 <span>${CFG.btnLabel}</span>
             </button>
             <div id="${pid}" class="${ucls('panel')}" style="margin-top:12px;"></div>
@@ -215,7 +177,6 @@
         const btnEl   = document.getElementById(bid);
         const panelEl = document.getElementById(pid);
         if (!btnEl || !panelEl) return null;
-
         return { wrapEl: wrap, btnEl, panelEl };
     }
 
@@ -225,6 +186,9 @@
     activeWidget = createWidgetInContainer();
     if (!activeWidget) return;
 
+    // -----------------------------------------------------------------------
+    // UI helpers
+    // -----------------------------------------------------------------------
     function hidePanel(panelEl) {
         panelEl.className = ucls('panel');
         panelEl.innerHTML = '';
@@ -267,6 +231,9 @@
         });
     }
 
+    // -----------------------------------------------------------------------
+    // Countdown
+    // -----------------------------------------------------------------------
     function countdown(stepIdx, totalSteps, seconds) {
         return new Promise(resolve => {
             let rem = seconds;
@@ -277,66 +244,31 @@
 
             const render = (r, paused) => {
                 const pct = Math.round((1 - r / seconds) * 100);
-                const countdownHtml = `<div style="font-size:22px;font-weight:800;text-align:center;margin:4px 0;white-space:nowrap;">${r}</div>`;
-                const progressHtml = `<div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>`;
-                const pausedHtml = paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : '';
                 panelEl.className = ucls('panel');
                 panelEl.innerHTML = `
                     <div style="text-align:center;">
-                        <span style="
-                            display:inline-block;
-                            padding:6px 14px;
-                            border-radius:7px;
-                            border:1px solid ${CFG.btnColor};
-                            background:${CFG.btnColor};
-                            color:#fff;
-                        ">
-                            ${countdownHtml}
-                            ${progressHtml}
-                            ${pausedHtml}
+                        <span style="display:inline-block;padding:6px 14px;border-radius:7px;
+                            border:1px solid ${CFG.btnColor};background:${CFG.btnColor};color:#fff;">
+                            <div style="font-size:22px;font-weight:800;text-align:center;margin:4px 0;white-space:nowrap;">${r}</div>
+                            <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
+                            ${paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục.</div>` : ''}
                         </span>
                     </div>`;
             };
 
-            const stopTimer = () => {
-                if (ivId) { clearInterval(ivId); ivId = null; }
-            };
-
+            const stopTimer  = () => { if (ivId) { clearInterval(ivId); ivId = null; } };
             const startTimer = () => {
                 if (ivId) return;
                 ivId = setInterval(() => {
                     rem--;
-                    if (rem <= 0) {
-                        stopTimer();
-                        removeListeners();
-                        resolve();
-                    } else {
-                        render(rem, false);
-                    }
+                    if (rem <= 0) { stopTimer(); removeListeners(); resolve(); }
+                    else render(rem, false);
                 }, 1000);
             };
 
-            const onVisible = () => {
-                if (isPaused()) {
-                    stopTimer();
-                    render(rem, true);
-                } else {
-                    render(rem, false);
-                    startTimer();
-                }
-            };
-
-            const onFocus = () => {
-                if (!isPaused()) {
-                    render(rem, false);
-                    startTimer();
-                }
-            };
-
-            const onBlur = () => {
-                stopTimer();
-                render(rem, true);
-            };
+            const onVisible = () => isPaused() ? (stopTimer(), render(rem, true)) : (render(rem, false), startTimer());
+            const onFocus   = () => { if (!isPaused()) { render(rem, false); startTimer(); } };
+            const onBlur    = () => { stopTimer(); render(rem, true); };
 
             const removeListeners = () => {
                 document.removeEventListener('visibilitychange', onVisible);
@@ -353,17 +285,24 @@
         });
     }
 
+    // -----------------------------------------------------------------------
+    // Finalize — gọi API lấy mã
+    // -----------------------------------------------------------------------
     async function finalizeAndShow(state, stepTimestamps) {
         hidePanel(activeWidget.panelEl);
-        const code      = await genUniqueCode();
-        const claimedAt = Timestamp.now();
-        const durSec    = Math.round((claimedAt.toMillis() - stepTimestamps[0]) / 1000);
+        const claimedAtMs = Date.now();
+        const durSec      = Math.round((claimedAtMs - stepTimestamps[0]) / 1000);
 
         try {
-            await updateDoc(doc(db, CFG.col, state.docId), {
-                claimed_at: claimedAt, duration_sec: durSec,
-                steps_completed: state.max_steps, step_timestamps: stepTimestamps, code,
+            const result = await apiCall('finalize', {
+                docId:           state.docId,
+                steps_completed: state.max_steps,
+                step_timestamps: stepTimestamps,
+                claimed_at_ms:   claimedAtMs,
+                duration_sec:    durSec,
             });
+            clearState();
+            broadcastCodeUI(result.code);
         } catch (e) {
             const rid = uid('r');
             show(activeWidget.panelEl, `Không lưu được mã. Vui lòng thử lại.
@@ -372,31 +311,32 @@
                 </div>`, 'error');
             document.getElementById(rid)?.addEventListener('click',
                 () => finalizeAndShow(state, stepTimestamps));
-            return;
         }
-
-        clearState();
-        broadcastCodeUI(code);
     }
 
+    // -----------------------------------------------------------------------
+    // Simple flow (1 bước)
+    // -----------------------------------------------------------------------
     async function runSimpleFlow() {
         busy = true;
         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
         hidePanel(activeWidget.panelEl);
 
-        const startedAt      = Timestamp.now();
-        const stepTimestamps = [startedAt.toMillis()];
-        let claimRef;
+        const startedAtMs    = Date.now();
+        const stepTimestamps = [startedAtMs];
+        let docId;
 
         try {
-            claimRef = await addDoc(collection(db, CFG.col), {
-                hostname, domain: window.location.origin,
-                plan: activePlan, max_steps: 1,
-                countdown_times: activeStepCfg.countdown_times,
-                started_at: startedAt, step_timestamps: stepTimestamps,
-                claimed_at: null, duration_sec: null, steps_completed: 0, code: null,
-                referrer: document.referrer || '',
+            const result = await apiCall('create', {
+                data: {
+                    hostname, domain: window.location.origin,
+                    plan: activePlan, max_steps: 1,
+                    countdown_times: activeStepCfg.countdown_times,
+                    started_at: startedAtMs, step_timestamps: stepTimestamps,
+                    referrer: document.referrer || '',
+                },
             });
+            docId = result.docId;
         } catch (e) {
             show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
@@ -404,28 +344,33 @@
 
         await countdown(0, 1, activeStepCfg.countdown_times[0]);
         await finalizeAndShow(
-            { docId: claimRef.id, max_steps: 1, step_starts: [startedAt.toMillis()] },
+            { docId, max_steps: 1 },
             stepTimestamps
         );
     }
 
+    // -----------------------------------------------------------------------
+    // Multi-step flow (2+ bước)
+    // -----------------------------------------------------------------------
     async function runMultiStepFlow() {
         busy = true;
         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
         hidePanel(activeWidget.panelEl);
 
-        const startedAt = Timestamp.now();
-        let claimRef;
+        const startedAtMs = Date.now();
+        let docId;
 
         try {
-            claimRef = await addDoc(collection(db, CFG.col), {
-                hostname, domain: window.location.origin,
-                plan: activePlan, max_steps: activeStepCfg.max_steps,
-                countdown_times: activeStepCfg.countdown_times,
-                started_at: startedAt, step_timestamps: [startedAt.toMillis()],
-                claimed_at: null, duration_sec: null, steps_completed: 0, code: null,
-                referrer: document.referrer || '',
+            const result = await apiCall('create', {
+                data: {
+                    hostname, domain: window.location.origin,
+                    plan: activePlan, max_steps: activeStepCfg.max_steps,
+                    countdown_times: activeStepCfg.countdown_times,
+                    started_at: startedAtMs, step_timestamps: [startedAtMs],
+                    referrer: document.referrer || '',
+                },
             });
+            docId = result.docId;
         } catch (e) {
             show(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
@@ -433,17 +378,19 @@
 
         await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
 
-        const step1Done      = Timestamp.now();
-        const stepTimestamps = [startedAt.toMillis(), step1Done.toMillis()];
+        const step1DoneMs    = Date.now();
+        const stepTimestamps = [startedAtMs, step1DoneMs];
+
         try {
-            await updateDoc(doc(db, CFG.col, claimRef.id), {
-                steps_completed: 1, step_timestamps: stepTimestamps,
-                step1_completed_at: step1Done,
+            await apiCall('update_step', {
+                docId, steps_completed: 1,
+                step_timestamps: stepTimestamps,
+                step1_completed_at: step1DoneMs,
             });
         } catch (e) {}
 
         const state = {
-            docId: claimRef.id, plan: activePlan,
+            docId, plan: activePlan,
             max_steps: activeStepCfg.max_steps,
             countdown_times: activeStepCfg.countdown_times,
             step_starts: stepTimestamps, steps_completed: 1,
@@ -454,31 +401,33 @@
         showWaitNextPage(state);
     }
 
+    // -----------------------------------------------------------------------
+    // Chờ sang trang (step 2)
+    // -----------------------------------------------------------------------
     function showWaitNextPage(state) {
         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
         const originPath = state.origin_path || location.pathname;
+        const iconHtml = `<img src="https://traffic1m.net/uploads/favicon_1772707655.png"
+            style="width:14px;height:14px;filter:brightness(0) invert(1);" alt="">`;
 
         function renderWait(unlocked) {
-            const iconHtml = `<img src="https://traffic1m.net/uploads/favicon_1772707655.png" style="width:14px;height:14px;filter:brightness(0) invert(1);" alt="">`;
-
-            const hintHtml = !unlocked ? `
+            const nid = uid('n');
+            const hintHtml = `
                 <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
                     VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
                 </div>
-            ` : `
-                <div style="text-align:center;font-size:11.5px;color:#757575;padding:6px 0;">
-                    VUI LÒNG CLICK VÀO LINK BẤT KỲ TRÊN WEBSITE ĐỂ NHẬN MÃ!
-                </div>
-                <button class="${ucls('nextbtn')}" id="${uid('n')}">
-                    ${iconHtml}
-                    <span>NHẬN MÃ NGAY</span>
-                </button>
+                ${unlocked ? `<button class="${ucls('nextbtn')}" id="${nid}">${iconHtml}<span>NHẬN MÃ NGAY</span></button>` : ''}
             `;
-
             activeWidget.panelEl.className = ucls('panel');
-            activeWidget.panelEl.innerHTML = `<div style="text-align:center;"><span style="display:inline-block;padding:6px 14px;border-radius:7px;border:1px solid #e0e0e0;background:#fafafa;color:#424242;font-size:10px;">${hintHtml}</span></div>`;
+            activeWidget.panelEl.innerHTML = `
+                <div style="text-align:center;">
+                    <span style="display:inline-block;padding:6px 14px;border-radius:7px;
+                        border:1px solid #e0e0e0;background:#fafafa;color:#424242;font-size:10px;">
+                        ${hintHtml}
+                    </span>
+                </div>`;
             if (unlocked) {
-                document.getElementById(uid('n'))?.addEventListener('click', () => runStep2(state));
+                document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
             }
         }
 
@@ -512,23 +461,28 @@
         for (let i = 1; i < state.max_steps; i++) {
             await countdown(i, state.max_steps, state.countdown_times[i]);
 
-            const stepDone = Timestamp.now();
-            stepTimestamps.push(stepDone.toMillis());
+            const stepDoneMs = Date.now();
+            stepTimestamps.push(stepDoneMs);
 
             try {
-                await updateDoc(doc(db, CFG.col, state.docId), {
-                    steps_completed: i + 1, step_timestamps: stepTimestamps,
-                    [`step${i + 1}_completed_at`]: stepDone,
+                await apiCall('update_step', {
+                    docId: state.docId,
+                    steps_completed: i + 1,
+                    step_timestamps: stepTimestamps,
+                    [`step${i + 1}_completed_at`]: stepDoneMs,
                 });
             } catch (e) {}
         }
 
         await finalizeAndShow(
-            { docId: state.docId, max_steps: state.max_steps, step_starts: [state.step_starts[0]] },
+            { docId: state.docId, max_steps: state.max_steps },
             stepTimestamps
         );
     }
 
+    // -----------------------------------------------------------------------
+    // Resume (reload trang giữa chừng)
+    // -----------------------------------------------------------------------
     function handleResume(state) {
         busy = true;
         if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
@@ -536,47 +490,50 @@
         else { clearState(); busy = false; }
     }
 
+    // -----------------------------------------------------------------------
+    // Khởi động
+    // -----------------------------------------------------------------------
     const pending = loadState();
     if (pending && pending.hostname === hostname) {
         handleResume(pending);
     } else {
-        if (activeWidget && activeWidget.btnEl) {
-            activeWidget.btnEl.addEventListener('click', () => {
-                if (busy) return;
+        activeWidget.btnEl.addEventListener('click', () => {
+            if (busy) return;
 
-                if (activeType === null) {
-                    show(activeWidget.panelEl, 'Cấu hình không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error');
+            if (activeType === null) {
+                show(activeWidget.panelEl, 'Cấu hình không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error');
+                return;
+            }
+
+            const runFlow = () => activeStepCfg.max_steps === 1
+                ? runSimpleFlow()
+                : runMultiStepFlow();
+
+            if (activeType === 'direct') {
+                runFlow();
+            } else if (activeType === 'google-search') {
+                if (!isFromGoogle()) {
+                    busy = true;
+                    activeWidget.btnEl.style.display = 'none';
+                    broadcastCodeUI(getStaticCode());
                     return;
                 }
-
-                if (activeType === 'direct') {
-                    if (activeStepCfg.max_steps === 1) runSimpleFlow();
-                    else runMultiStepFlow();
-
-                } else if (activeType === 'google-search') {
-                    if (!isFromGoogle()) {
-                        busy = true;
-                        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
-                        broadcastCodeUI(getStaticCode());
-                        return;
-                    }
-                    if (activeStepCfg.max_steps === 1) runSimpleFlow();
-                    else runMultiStepFlow();
-
-                } else if (activeType === 'social') {
-                    if (!isFromSocialUrl(activeSocialUrl)) {
-                        busy = true;
-                        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
-                        broadcastCodeUI(getStaticCode());
-                        return;
-                    }
-                    if (activeStepCfg.max_steps === 1) runSimpleFlow();
-                    else runMultiStepFlow();
+                runFlow();
+            } else if (activeType === 'social') {
+                if (!isFromSocialUrl(activeSocialUrl)) {
+                    busy = true;
+                    activeWidget.btnEl.style.display = 'none';
+                    broadcastCodeUI(getStaticCode());
+                    return;
                 }
-            });
-        }
+                runFlow();
+            }
+        });
     }
 
+    // -----------------------------------------------------------------------
+    // CSS
+    // -----------------------------------------------------------------------
     document.head.insertAdjacentHTML('beforeend', `<style>
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
 
@@ -619,30 +576,15 @@
         .${ucls('copied')}{background:#00695c !important;}
 
         .${ucls('nextbtn')}{
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            gap:8px;
-            margin-top:8px;
-            width:100%;
-            padding:9px 14px;
-            background:${CFG.btnColor};
-            color:#fff;
-            border:none;
-            border-radius:7px;
-            font-size:12px;
-            font-weight:700;
-            font-family:'Be Vietnam Pro','Inter',sans-serif;
-            letter-spacing:0.02em;
-            cursor:pointer;
+            display:inline-flex;align-items:center;justify-content:center;gap:8px;
+            margin-top:8px;width:100%;padding:9px 14px;
+            background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
+            font-size:12px;font-weight:700;font-family:'Be Vietnam Pro','Inter',sans-serif;
+            letter-spacing:0.02em;cursor:pointer;
             box-shadow:0 3px 10px rgba(229,57,53,.30);
             transition:background .2s,transform .15s,box-shadow .2s;
         }
-
-        .${ucls('nextbtn')}:hover{
-            background:${CFG.btnHover};
-            transform:translateY(-2px);
-        }
+        .${ucls('nextbtn')}:hover{background:${CFG.btnHover};transform:translateY(-2px);}
 
         .${ucls('retrybtn')}{
             display:inline-flex;align-items:center;gap:5px;margin-top:8px;
