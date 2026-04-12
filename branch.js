@@ -147,11 +147,9 @@
         wrap.style.cssText = 'display:block;width:100%;text-align:center;';
         wrap.innerHTML = `
             <button id="${bid}" style="${btnStyle}">
-                <img src="https://traffic1m.net/uploads/favicon_1772707655.png"
-                     style="width:13px;height:13px;filter:brightness(0) invert(1);" alt="">
                 <span>${CFG.btnLabel}</span>
             </button>
-            <div id="${pid}" class="${ucls('panel')}" style="margin-top:10px;"></div>
+            <div id="${pid}" class="${ucls('panel')}" style="margin-top:8px;"></div>
         `;
 
         container.appendChild(wrap);
@@ -174,36 +172,38 @@
     }
 
     function wrapCenter(innerHtml) {
-        return `<div style="display:flex;justify-content:center;"><div class="${ucls('card')}">${innerHtml}</div></div>`;
+        return `<div style="display:flex;justify-content:center;">${innerHtml}</div>`;
     }
 
     function showCodeUI(panelEl, code) {
         const cid = uid('c');
         panelEl.className = ucls('panel');
         panelEl.innerHTML = wrapCenter(`
-            <div class="${ucls('code_label')}">Mã của bạn</div>
-            <div class="${ucls('codebox')}">${code}</div>
-            <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
+            <div class="${ucls('codewrap')}">
+                <div class="${ucls('code_label')}">Mã của bạn</div>
+                <div class="${ucls('codebox')}">${code}</div>
+                <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
+            </div>
         `);
         document.getElementById(cid)?.addEventListener('click', () =>
             copyText(code, document.getElementById(cid))
         );
     }
 
-    function showMsgUI(panelEl, icon, text, type) {
+    function showMsgUI(panelEl, text, type) {
         panelEl.className = ucls('panel');
         panelEl.innerHTML = wrapCenter(`
-            <div class="${ucls('msg_icon')}">${icon}</div>
             <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
         `);
     }
 
-    function showMsgWithBtn(panelEl, icon, text, type, btnId, btnLabel) {
+    function showMsgWithBtn(panelEl, text, type, btnId, btnLabel) {
         panelEl.className = ucls('panel');
         panelEl.innerHTML = wrapCenter(`
-            <div class="${ucls('msg_icon')}">${icon}</div>
-            <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
-            <button class="${ucls('retrybtn')}" id="${btnId}">${btnLabel}</button>
+            <div class="${ucls('inline_wrap')}">
+                <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
+                <button class="${ucls('retrybtn')}" id="${btnId}">${btnLabel}</button>
+            </div>
         `);
     }
 
@@ -237,9 +237,11 @@
                 const pct = Math.round((1 - r / seconds) * 100);
                 panelEl.className = ucls('panel');
                 panelEl.innerHTML = wrapCenter(`
-                    <div class="${ucls('countdown_num')}">${r}</div>
-                    <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
-                    ${paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục</div>` : '<div class="' + ucls('paused') + '" style="opacity:0">·</div>'}
+                    <div class="${ucls('cd_wrap')}">
+                        <span class="${ucls('countdown_num')}">${r}</span>
+                        <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
+                        ${paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục</div>` : ''}
+                    </div>
                 `);
             };
 
@@ -291,7 +293,7 @@
             const rid = uid('r');
             showMsgWithBtn(
                 activeWidget.panelEl,
-                '⚠️', 'Không lưu được mã. Vui lòng thử lại.', 'warn',
+                'Không lưu được mã. Vui lòng thử lại.', 'warn',
                 rid, 'Thử lại'
             );
             document.getElementById(rid)?.addEventListener('click',
@@ -320,7 +322,7 @@
             });
             docId = result.docId;
         } catch (e) {
-            showMsgUI(activeWidget.panelEl, '❌', 'Không kết nối được. Vui lòng tải lại trang.', 'error');
+            showMsgUI(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
         }
 
@@ -348,7 +350,7 @@
             });
             docId = result.docId;
         } catch (e) {
-            showMsgUI(activeWidget.panelEl, '❌', 'Không kết nối được. Vui lòng tải lại trang.', 'error');
+            showMsgUI(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
             busy = false; return;
         }
 
@@ -385,9 +387,10 @@
             const nid = uid('n');
             activeWidget.panelEl.className = ucls('panel');
             activeWidget.panelEl.innerHTML = wrapCenter(`
-                <div class="${ucls('msg_icon')}">👆</div>
-                <div class="${ucls('msg_text')} ${ucls('msg_info')}">Vui lòng click vào link bất kỳ trên website để nhận mã!</div>
-                ${unlocked ? `<button class="${ucls('nextbtn')}" id="${nid}">NHẬN MÃ NGAY</button>` : ''}
+                <div class="${ucls('inline_wrap')}">
+                    <div class="${ucls('msg_text')} ${ucls('msg_info')}">Vui lòng click vào link bất kỳ trên website để nhận mã!</div>
+                    ${unlocked ? `<button class="${ucls('nextbtn')}" id="${nid}">NHẬN MÃ NGAY</button>` : ''}
+                </div>
             `);
             if (unlocked) {
                 document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
@@ -460,7 +463,7 @@
             if (activeType === null) {
                 showMsgUI(
                     activeWidget.panelEl,
-                    '⚙️', 'Cấu hình không hợp lệ.<br>Vui lòng liên hệ quản trị viên.', 'error'
+                    'Cấu hình không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error'
                 );
                 return;
             }
@@ -500,7 +503,7 @@
         }
 
         [id^="${_p}-b_"]{
-            display:inline-flex;align-items:center;gap:6px;
+            display:inline-flex;align-items:center;
             background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
             font-weight:700;cursor:pointer;-webkit-appearance:none;
             transition:background .2s,transform .15s;
@@ -515,18 +518,18 @@
         }
         .${ucls('panel')}:empty{display:none;}
 
-        .${ucls('card')}{
+        .${ucls('codewrap')}{
+            display:inline-flex;
+            flex-direction:column;
+            align-items:center;
+            gap:5px;
+        }
+
+        .${ucls('inline_wrap')}{
             display:inline-flex;
             flex-direction:column;
             align-items:center;
             gap:6px;
-            padding:10px 16px;
-            border-radius:10px;
-            background:#fafafa;
-            border:1px solid #eeeeee;
-            min-width:0;
-            max-width:260px;
-            width:100%;
         }
 
         .${ucls('code_label')}{
@@ -535,7 +538,7 @@
         }
         .${ucls('codebox')}{
             display:block;
-            padding:5px 12px;
+            padding:4px 14px;
             background:#f1f8e9;
             border:1.5px dashed #aed581;
             border-radius:6px;
@@ -546,7 +549,7 @@
         }
         .${ucls('copybtn')}{
             display:inline-flex;align-items:center;justify-content:center;
-            width:100%;padding:5px 10px;
+            padding:4px 14px;
             background:#558b2f;color:#fff;border:none;border-radius:6px;
             font-size:11px;font-weight:700;cursor:pointer;
             transition:background .2s;
@@ -554,30 +557,34 @@
         .${ucls('copybtn')}:hover{background:#33691e;}
         .${ucls('copied')}{background:#00695c !important;}
 
+        .${ucls('cd_wrap')}{
+            display:inline-flex;
+            flex-direction:column;
+            align-items:center;
+            gap:4px;
+        }
+
         .${ucls('countdown_num')}{
-            font-size:24px;font-weight:800;color:#fff;
+            font-size:15px;font-weight:800;color:#fff;
             background:${CFG.btnColor};
-            border-radius:8px;
-            padding:4px 18px;
-            line-height:1.3;
+            border-radius:6px;
+            padding:2px 10px;
+            line-height:1.4;
             letter-spacing:0.02em;
         }
         .${ucls('progress')}{
-            width:100%;height:3px;
-            background:#e0e0e0;border-radius:3px;overflow:hidden;
+            width:80px;height:2px;
+            background:#e0e0e0;border-radius:2px;overflow:hidden;
         }
         .${ucls('bar')}{
             height:100%;
             background:linear-gradient(90deg,#ffcc80,#ffa726);
-            border-radius:3px;transition:width .85s linear;
+            border-radius:2px;transition:width .85s linear;
         }
         .${ucls('paused')}{
             font-size:9px;color:#9e9e9e;
         }
 
-        .${ucls('msg_icon')}{
-            font-size:18px;line-height:1;
-        }
         .${ucls('msg_text')}{
             font-size:11px;font-weight:600;line-height:1.45;
             text-align:center;
@@ -589,7 +596,7 @@
         .${ucls('nextbtn')},
         .${ucls('retrybtn')}{
             display:inline-flex;align-items:center;justify-content:center;
-            width:100%;padding:6px 12px;
+            padding:5px 14px;
             border:none;border-radius:6px;
             font-size:11px;font-weight:700;cursor:pointer;
             transition:background .2s,transform .15s;
