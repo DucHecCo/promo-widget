@@ -1,4 +1,3 @@
-
 (function() {
     'use strict';
 
@@ -9,12 +8,12 @@
     const SCROLL_REQUIRED_PX = 600;
 
     const STEP_CONFIG = {
-        '1step_60':  { max_steps: 1, countdown_times: [60]       },
-        '1step_90':  { max_steps: 1, countdown_times: [90]       },
-        '1step_120': { max_steps: 1, countdown_times: [120]      },
-        '2step_75':  { max_steps: 2, countdown_times: [60,  15]  },
-        '2step_90':  { max_steps: 2, countdown_times: [70,  20]  },
-        '2step_120': { max_steps: 2, countdown_times: [90,  30]  },
+        '1step_60':  { max_steps: 1, countdown_times: [60]        },
+        '1step_90':  { max_steps: 1, countdown_times: [90]        },
+        '1step_120': { max_steps: 1, countdown_times: [120]       },
+        '2step_75':  { max_steps: 2, countdown_times: [60,  15]   },
+        '2step_90':  { max_steps: 2, countdown_times: [70,  20]   },
+        '2step_120': { max_steps: 2, countdown_times: [90,  30]   },
         '3step_90':  { max_steps: 3, countdown_times: [60, 15, 15]  },
         '3step_120': { max_steps: 3, countdown_times: [90, 15, 15]  },
         '3step_150': { max_steps: 3, countdown_times: [120,15, 15]  },
@@ -22,6 +21,10 @@
     const DEFAULT_PLAN    = '1step_60';
     const CLAIM_STORE_KEY = '_mkm_session';
     const CLAIM_STORE_TTL = 3 * 60 * 1000;
+
+    function randomExtra() {
+        return Math.floor(Math.random() * 3) + 5;
+    }
 
     function uid(name) {
         return '_' + Math.random().toString(36).slice(2, 8) + '_' + name;
@@ -109,16 +112,9 @@
         return popup;
     }
 
-    function showPopup(popup) {
-        popup.style.display = 'block';
-    }
-    function hidePopup(popup) {
-        popup.style.display = 'none';
-    }
+    function showPopup(popup) { popup.style.display = 'block'; }
 
-    function setPopupContent(popup, html) {
-        popup.innerHTML = html;
-    }
+    function setPopupContent(popup, html) { popup.innerHTML = html; }
 
     function renderCountdown(popup, secondsRemaining, scrollPct, paused) {
         const pct = Math.min(100, Math.max(0, scrollPct));
@@ -182,12 +178,12 @@
 
     async function countdownWithScroll(popup, totalSeconds) {
         return new Promise((resolve) => {
-            let remaining    = totalSeconds;
-            let active       = true;
-            let cycleStart   = Date.now();
-            let accumulated  = 0;
-            let lastScrollY  = window.scrollY;
-            let intervalId   = null;
+            let remaining   = totalSeconds;
+            let active      = true;
+            let cycleStart  = Date.now();
+            let accumulated = 0;
+            let lastScrollY = window.scrollY;
+            let intervalId  = null;
 
             function updateUI() {
                 const pct = Math.round((accumulated / SCROLL_REQUIRED_PX) * 100);
@@ -242,9 +238,9 @@
                 return false;
             }
         } else if (activeType === 'social' && activeSocialUrl) {
-            const ref      = document.referrer || '';
-            const socHost  = new URL(activeSocialUrl).hostname.replace(/^www\./, '');
-            const refHost  = (() => { try { return new URL(ref).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
+            const ref     = document.referrer || '';
+            const socHost = new URL(activeSocialUrl).hostname.replace(/^www\./, '');
+            const refHost = (() => { try { return new URL(ref).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
             if (refHost !== socHost) {
                 renderMsg(popup, 'Vui lòng truy cập từ ' + socHost + ' để nhận mã.');
                 return false;
@@ -256,10 +252,10 @@
             const result = await apiCall('create', {
                 data: {
                     hostname,
-                    domain:   window.location.origin,
-                    plan:     planConfig.plan,
+                    domain:    window.location.origin,
+                    plan:      planConfig.plan,
                     max_steps: 1,
-                    referrer: document.referrer || ''
+                    referrer:  document.referrer || ''
                 }
             });
             docId = result.docId;
@@ -268,13 +264,14 @@
             return false;
         }
 
-        await countdownWithScroll(popup, planConfig.countdown_times[0]);
+        const step1Time = planConfig.countdown_times[0] + randomExtra();
+        await countdownWithScroll(popup, step1Time);
 
         try {
             const finalData = await apiCall('finalize', {
                 docId,
                 steps_completed: 1,
-                duration_sec:    planConfig.countdown_times[0]
+                duration_sec:    step1Time
             });
             clearState();
             renderCode(popup, finalData.code);
@@ -301,6 +298,8 @@
             }
         }
 
+        const paddedTimes = planConfig.countdown_times.map(t => t + randomExtra());
+
         let docId;
         try {
             const result = await apiCall('create', {
@@ -318,19 +317,19 @@
             return false;
         }
 
-        await countdownWithScroll(popup, planConfig.countdown_times[0]);
+        await countdownWithScroll(popup, paddedTimes[0]);
 
         try { await apiCall('update_step', { docId, steps_completed: 1 }); } catch(e) {}
 
         const state = {
             docId,
-            plan:             planConfig.plan,
-            max_steps:        planConfig.max_steps,
-            countdown_times:  planConfig.countdown_times,
-            steps_completed:  1,
+            plan:            planConfig.plan,
+            max_steps:       planConfig.max_steps,
+            countdown_times: paddedTimes,
+            steps_completed: 1,
             hostname,
-            origin_path:      location.pathname,
-            page_visited:     false
+            origin_path:     location.pathname,
+            page_visited:    false
         };
         saveState(state);
         renderMsg(popup, 'Bước 1 hoàn thành! Hãy nhấp vào một liên kết bất kỳ trên trang để tiếp tục.');
