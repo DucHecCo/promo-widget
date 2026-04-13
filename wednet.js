@@ -8,20 +8,19 @@
     const LOGO_URL     = 'https://trafficvn.com/uploads/logo_1775881215_9a6524dc.png';
 
     // Cấu hình cuộn: mỗi 10 giây cần cuộn ít nhất 600px
-    const SCROLL_CYCLE_MS = 10000;   // 10 giây
-    const SCROLL_REQUIRED_PX = 600;  // pixel cần cuộn trong mỗi chu kỳ
+    const SCROLL_CYCLE_MS = 10000;
+    const SCROLL_REQUIRED_PX = 600;
 
-    // Các step config mặc định (backend sẽ ghi đè theo campaign)
     const STEP_CONFIG = {
-        '1step_60':  { max_steps: 1, countdown_times: [60]      },
-        '1step_90':  { max_steps: 1, countdown_times: [90]      },
-        '1step_120': { max_steps: 1, countdown_times: [120]     },
-        '2step_75':  { max_steps: 2, countdown_times: [60,  15] },
-        '2step_90':  { max_steps: 2, countdown_times: [70,  20] },
-        '2step_120': { max_steps: 2, countdown_times: [90,  30] },
+        '1step_60':  { max_steps: 1, countdown_times: [60] },
+        '1step_90':  { max_steps: 1, countdown_times: [90] },
+        '1step_120': { max_steps: 1, countdown_times: [120] },
+        '2step_75':  { max_steps: 2, countdown_times: [60, 15] },
+        '2step_90':  { max_steps: 2, countdown_times: [70, 20] },
+        '2step_120': { max_steps: 2, countdown_times: [90, 30] },
         '3step_90':  { max_steps: 3, countdown_times: [60, 15, 15] },
         '3step_120': { max_steps: 3, countdown_times: [90, 15, 15] },
-        '3step_150': { max_steps: 3, countdown_times: [120,15, 15] },
+        '3step_150': { max_steps: 3, countdown_times: [120, 15, 15] },
     };
     const DEFAULT_PLAN = '1step_60';
     const CLAIM_STORE_KEY = '_mkm_session';
@@ -35,10 +34,7 @@
     }
 
     function saveState(state) {
-        localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({
-            ...state,
-            _savedAt: Date.now()
-        }));
+        localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({ ...state, _savedAt: Date.now() }));
     }
     function loadState() {
         try {
@@ -49,7 +45,7 @@
                 return null;
             }
             return raw;
-        } catch(e) { return null; }
+        } catch { return null; }
     }
     function clearState() {
         localStorage.removeItem(CLAIM_STORE_KEY);
@@ -83,15 +79,16 @@
             });
             document.body.appendChild(ta);
             ta.select();
-            try { document.execCommand('copy'); done(); } catch(e) {}
+            try { document.execCommand('copy'); done(); } catch {}
             document.body.removeChild(ta);
         });
     }
 
     // ═══════════════════════════════════════════════════════════
-    // TẠO GIAO DIỆN (chỉ logo, không text)
+    // TẠO GIAO DIỆN (nút logo + popup)
     // ═══════════════════════════════════════════════════════════
-    function getContainer() {
+    function createUI() {
+        // Container chính (để giữ nút)
         let container = document.getElementById('ma_km_2026_vip');
         if (!container) {
             container = document.createElement('div');
@@ -100,151 +97,133 @@
             if (footer) footer.parentNode.insertBefore(container, footer);
             else document.body.appendChild(container);
         }
-        return container;
-    }
+        container.style.cssText = 'display:flex;justify-content:center;margin:10px 0;';
 
-    function createWidget() {
-        const container = getContainer();
-        container.innerHTML = '';
-
-        const wrapId = uid('wrap');
-        const btnId  = uid('btn');
-        const panelId = uid('panel');
-
-        const wrap = document.createElement('div');
-        wrap.id = wrapId;
-        wrap.style.cssText = 'display:flex;justify-content:center;align-items:center;margin:8px 0;';
-
-        // Nút chỉ hiển thị ảnh logo, không có text
+        // Nút logo
         const btn = document.createElement('button');
-        btn.id = btnId;
+        btn.id = uid('logo_btn');
         btn.style.cssText = `
+            background: white;
+            border: none;
+            border-radius: 16px;
+            padding: 6px;
+            width: 80px;
+            height: 80px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,.15);
+            transition: transform 0.2s, box-shadow 0.2s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 90px;
-            height: 80px;
-            border: none;
-            background: transparent;
-            border-radius: 16px;
-            cursor: pointer;
-            padding: 0;
-            overflow: hidden;
-            box-shadow: 0 4px 18px rgba(0,0,0,.14), 0 1px 4px rgba(0,0,0,.08);
-            transition: box-shadow .2s, transform .18s;
         `;
-        btn.innerHTML = `<img src="${LOGO_URL}" alt="Xác minh" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onerror="this.style.display='none'">`;
-        btn.onmouseenter = () => btn.style.transform = 'translateY(-3px)';
-        btn.onmouseleave = () => btn.style.transform = 'translateY(0)';
+        btn.innerHTML = `<img src="${LOGO_URL}" alt="Xác minh" style="width:100%;height:100%;object-fit:contain;border-radius:12px;" loading="lazy" onerror="this.style.display='none'">`;
+        btn.onmouseenter = () => btn.style.transform = 'scale(1.02)';
+        btn.onmouseleave = () => btn.style.transform = 'scale(1)';
+        container.appendChild(btn);
 
-        const panel = document.createElement('div');
-        panel.id = panelId;
-        panel.style.cssText = 'margin-top:10px;text-align:center;';
-
-        wrap.appendChild(btn);
-        wrap.appendChild(panel);
-        container.appendChild(wrap);
-
-        return { btn, panel, wrap };
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // HIỂN THỊ CÁC TRẠNG THÁI
-    // ═══════════════════════════════════════════════════════════
-    function showCodeUI(panel, code) {
-        const copyId = uid('copy');
-        panel.innerHTML = `
-            <div style="display:inline-flex;flex-direction:column;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;background:#fafafa;border:1px solid #eee;max-width:260px;">
-                <div style="font-size:10px;font-weight:600;color:#558b2f;">Mã của bạn</div>
-                <div style="padding:5px 12px;background:#f1f8e9;border:1.5px dashed #aed581;border-radius:6px;font-size:18px;font-weight:800;letter-spacing:3px;color:#33691e;font-family:'Courier New',monospace;">${code}</div>
-                <button id="${copyId}" style="display:inline-flex;width:100%;padding:5px 10px;background:#558b2f;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Sao chép mã</button>
+        // Tạo popup (fixed bottom-right, ẩn ban đầu)
+        const popupId = 'tvn_popup_' + Math.random().toString(36).slice(2);
+        const popup = document.createElement('div');
+        popup.id = popupId;
+        popup.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 2147483647;
+            width: 320px;
+            max-width: calc(100vw - 40px);
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.2);
+            padding: 16px 18px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            transition: opacity 0.2s ease;
+            display: none;
+            opacity: 0;
+            border: 1px solid #eee;
+        `;
+        popup.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span style="font-weight:700;color:#333;">⏳ Xác minh</span>
+                <button id="${popupId}_close" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;">✕</button>
             </div>
+            <div id="${popupId}_content" style="text-align:center;"></div>
         `;
-        const copyBtn = document.getElementById(copyId);
-        if (copyBtn) copyBtn.addEventListener('click', () => copyText(code, copyBtn));
-    }
+        document.body.appendChild(popup);
 
-    function showMsg(panel, text, isError = false) {
-        panel.innerHTML = `
-            <div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:8px;background:#fff5f5;border:1px solid #ffcdd2;">
-                <div style="font-size:11px;font-weight:600;color:${isError ? '#c62828' : '#1565c0'};">${text}</div>
-            </div>
-        `;
-    }
+        const closeBtn = document.getElementById(popupId + '_close');
+        const contentDiv = document.getElementById(popupId + '_content');
 
-    function showCountdownUI(panel, secondsRemaining, requiredScrollPct = -1, paused = false) {
-        const pct = requiredScrollPct >= 0 ? Math.min(100, requiredScrollPct) : 0;
-        panel.innerHTML = `
-            <div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:12px;background:#fff;border:1px solid #e0e0e0;min-width:130px;">
-                <div style="font-size:20px;font-weight:800;color:#e53935;">${secondsRemaining}s</div>
-                ${requiredScrollPct >= 0 ? `
-                    <div style="width:100%;height:3px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
-                        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);transition:width .3s;"></div>
-                    </div>
-                ` : ''}
-                ${paused ? '<div style="font-size:9px;color:#9e9e9e;">⚠️ Hãy cuộn trang để tiếp tục</div>' : ''}
-                ${requiredScrollPct < 0 ? '<div style="font-size:9px;color:#888;">Vui lòng cuộn trang liên tục</div>' : ''}
-            </div>
-        `;
+        // Hàm hiển thị popup
+        function showPopup() {
+            popup.style.display = 'block';
+            requestAnimationFrame(() => { popup.style.opacity = '1'; });
+        }
+        function hidePopup() {
+            popup.style.opacity = '0';
+            setTimeout(() => { popup.style.display = 'none'; }, 200);
+        }
+
+        // Hàm cập nhật nội dung popup
+        function setContent(html) {
+            contentDiv.innerHTML = html;
+        }
+
+        return { btn, popup, showPopup, hidePopup, setContent, closeBtn };
     }
 
     // ═══════════════════════════════════════════════════════════
-    // COUNTDOWN VỚI KIỂM TRA CUỘN MỖI 10 GIÂY
+    // COUNTDOWN VỚI KIỂM TRA CUỘN (cập nhật popup)
     // ═══════════════════════════════════════════════════════════
-    async function countdownWithScroll(panel, totalSeconds, stepIndex) {
-        return new Promise(async (resolve) => {
+    async function countdownWithScroll(totalSeconds, stepIndex, onUpdate, onPauseChange) {
+        return new Promise((resolve) => {
             let remaining = totalSeconds;
-            let active = true;          // true = timer đang chạy, false = tạm dừng do không cuộn
+            let active = true;          // true = timer đang chạy
             let cycleStart = Date.now();
             let accumulatedScroll = 0;
             let lastScrollY = window.scrollY;
-            let lastRemaining = remaining;
             let intervalId = null;
             let scrollListener = null;
 
-            // Hàm cập nhật giao diện
             function updateUI() {
                 const pct = Math.min(100, Math.round((accumulatedScroll / SCROLL_REQUIRED_PX) * 100));
-                showCountdownUI(panel, remaining, pct, !active);
+                onUpdate(remaining, pct, !active);
             }
 
-            // Kiểm tra scroll
             function onScroll() {
                 const now = Date.now();
                 const delta = Math.abs(window.scrollY - lastScrollY);
                 lastScrollY = window.scrollY;
                 accumulatedScroll += delta;
 
-                // Nếu đã đủ scroll trong chu kỳ hiện tại
                 if (accumulatedScroll >= SCROLL_REQUIRED_PX) {
                     if (!active) {
-                        // Nếu đang tạm dừng do thiếu scroll, cho chạy lại
                         active = true;
+                        if (onPauseChange) onPauseChange(false);
                         updateUI();
                     }
-                    // Reset chu kỳ mới
                     cycleStart = now;
                     accumulatedScroll = 0;
                 }
                 updateUI();
             }
 
-            // Kiểm tra chu kỳ mỗi 0.5 giây
             function checkCycle() {
                 const now = Date.now();
                 if (now - cycleStart >= SCROLL_CYCLE_MS) {
-                    // Hết 10s mà chưa đủ scroll => tạm dừng đếm ngược
                     if (accumulatedScroll < SCROLL_REQUIRED_PX) {
                         if (active) {
                             active = false;
+                            if (onPauseChange) onPauseChange(true);
                             updateUI();
                         }
                     } else {
-                        // Đủ scroll, reset chu kỳ
                         cycleStart = now;
                         accumulatedScroll = 0;
                         if (!active) {
                             active = true;
+                            if (onPauseChange) onPauseChange(false);
                             updateUI();
                         }
                     }
@@ -252,12 +231,10 @@
                 updateUI();
             }
 
-            // Bộ đếm thời gian chính
             function timerLoop() {
                 if (!active) return;
                 remaining--;
                 if (remaining <= 0) {
-                    // Kết thúc
                     if (intervalId) clearInterval(intervalId);
                     if (scrollListener) window.removeEventListener('scroll', scrollListener);
                     resolve();
@@ -266,7 +243,6 @@
                 }
             }
 
-            // Khởi tạo
             window.addEventListener('scroll', onScroll);
             scrollListener = onScroll;
             intervalId = setInterval(() => {
@@ -278,28 +254,40 @@
     }
 
     // ═══════════════════════════════════════════════════════════
-    // LUỒNG CHÍNH
+    // LUỒNG CHÍNH (1 step và multi step)
     // ═══════════════════════════════════════════════════════════
-    async function runSimpleFlow(panel, btn, planConfig, hostname, activeType, activeSocialUrl) {
-        // Kiểm tra nguồn truy cập nếu cần (giữ nguyên logic cũ)
+    let currentFlowAbort = null; // để hủy nếu đóng popup
+
+    async function runSimpleFlow(btn, ui, planConfig, hostname, activeType, activeSocialUrl) {
+        // Kiểm tra nguồn (Google / Social)
         if (activeType === 'google-search') {
             const ref = document.referrer || '';
             const isGoogle = ref.includes('google.com') || ref.includes('google.com.vn');
             if (!isGoogle) {
-                showMsg(panel, 'Vui lòng tìm kiếm qua Google trước khi nhấn nút.', true);
+                ui.setContent(`
+                    <div style="color:#c62828;margin-bottom:12px;">❌ Vui lòng tìm kiếm qua Google trước khi nhấn nút.</div>
+                    <button id="tvn_retry_btn" style="background:#e53935;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;">Thử lại</button>
+                `);
+                const retryBtn = document.getElementById('tvn_retry_btn');
+                if (retryBtn) retryBtn.onclick = () => { ui.hidePopup(); btn.style.display = 'inline-flex'; };
                 return false;
             }
         } else if (activeType === 'social' && activeSocialUrl) {
             const ref = document.referrer || '';
             const socialHost = new URL(activeSocialUrl).hostname.replace(/^www\./, '');
-            const refHost = (() => { try { return new URL(ref).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
+            let refHost = '';
+            try { refHost = new URL(ref).hostname.replace(/^www\./, ''); } catch(e) {}
             if (refHost !== socialHost) {
-                showMsg(panel, `Vui lòng truy cập từ ${socialHost} để nhận mã.`, true);
+                ui.setContent(`
+                    <div style="color:#c62828;margin-bottom:12px;">❌ Vui lòng truy cập từ ${socialHost} để nhận mã.</div>
+                    <button id="tvn_retry_btn" style="background:#e53935;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;">Thử lại</button>
+                `);
+                const retryBtn = document.getElementById('tvn_retry_btn');
+                if (retryBtn) retryBtn.onclick = () => { ui.hidePopup(); btn.style.display = 'inline-flex'; };
                 return false;
             }
         }
 
-        // Tạo phiên
         let docId;
         try {
             const result = await apiCall('create', {
@@ -313,44 +301,100 @@
             });
             docId = result.docId;
         } catch(e) {
-            showMsg(panel, 'Không thể tạo phiên. Vui lòng thử lại.', true);
+            ui.setContent(`
+                <div style="color:#c62828;margin-bottom:12px;">⚠️ Không thể tạo phiên. Vui lòng thử lại.</div>
+                <button id="tvn_retry_btn" style="background:#e53935;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;">Thử lại</button>
+            `);
+            const retryBtn = document.getElementById('tvn_retry_btn');
+            if (retryBtn) retryBtn.onclick = () => { ui.hidePopup(); btn.style.display = 'inline-flex'; };
             return false;
         }
 
-        // Ẩn nút, bắt đầu đếm ngược có cuộn
+        // Ẩn nút logo
         btn.style.display = 'none';
-        await countdownWithScroll(panel, planConfig.countdown_times[0], 1);
+        ui.showPopup();
+
+        // Hàm cập nhật nội dung đếm ngược
+        const updateCountdown = (rem, pct, paused) => {
+            let html = `<div style="font-size:28px;font-weight:800;color:#e53935;margin:10px 0;">${rem}s</div>`;
+            if (pct >= 0) {
+                html += `<div style="background:#e0e0e0;border-radius:4px;height:6px;margin:8px 0;"><div style="width:${pct}%;height:6px;background:#ffa726;border-radius:4px;"></div></div>`;
+            }
+            if (paused) {
+                html += `<div style="font-size:12px;color:#f39c12;margin-top:6px;">🔁 Hãy cuộn trang để tiếp tục đếm ngược</div>`;
+            } else {
+                html += `<div style="font-size:11px;color:#888;margin-top:6px;">📜 Cuộn trang liên tục (${SCROLL_REQUIRED_PX}px / 10s)</div>`;
+            }
+            ui.setContent(html);
+        };
+
+        let countdownFinished = false;
+        const onPauseChange = (paused) => {
+            if (!countdownFinished) updateCountdown(remaining, pct, paused);
+        };
+        let remaining = planConfig.countdown_times[0];
+        let pct = 0;
+        await countdownWithScroll(planConfig.countdown_times[0], 1, (rem, p, paused) => {
+            remaining = rem; pct = p;
+            if (!countdownFinished) updateCountdown(rem, p, paused);
+        }, onPauseChange);
+        countdownFinished = true;
 
         // Finalize
         try {
+            ui.setContent('<div>⌛ Đang xử lý mã...</div>');
             const finalData = await apiCall('finalize', {
                 docId,
                 steps_completed: 1,
                 duration_sec: planConfig.countdown_times[0]
             });
             clearState();
-            showCodeUI(panel, finalData.code);
+            ui.setContent(`
+                <div style="margin:12px 0;font-size:22px;font-weight:800;letter-spacing:2px;color:#2e7d32;background:#e8f5e9;padding:8px;border-radius:12px;">${finalData.code}</div>
+                <button id="tvn_copy_btn" style="background:#2e7d32;color:white;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;">📋 Sao chép mã</button>
+                <button id="tvn_close_popup_btn" style="background:#aaa;color:white;border:none;border-radius:8px;padding:6px 12px;margin-left:8px;cursor:pointer;">Đóng</button>
+            `);
+            const copyBtn = document.getElementById('tvn_copy_btn');
+            if (copyBtn) copyBtn.onclick = () => copyText(finalData.code, copyBtn);
+            const closePopupBtn = document.getElementById('tvn_close_popup_btn');
+            if (closePopupBtn) closePopupBtn.onclick = () => ui.hidePopup();
         } catch(e) {
-            showMsg(panel, 'Lỗi khi lấy mã: ' + e.message, true);
+            ui.setContent(`
+                <div style="color:#c62828;margin-bottom:12px;">⚠️ Lỗi khi lấy mã: ${e.message}</div>
+                <button id="tvn_retry_btn" style="background:#e53935;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;">Thử lại</button>
+            `);
+            const retryBtn = document.getElementById('tvn_retry_btn');
+            if (retryBtn) retryBtn.onclick = () => { ui.hidePopup(); btn.style.display = 'inline-flex'; };
         }
         return true;
     }
 
-    async function runMultiStepFlow(panel, btn, planConfig, hostname, activeType, activeSocialUrl) {
-        // Tương tự như trên nhưng có update_step
+    async function runMultiStepFlow(btn, ui, planConfig, hostname, activeType, activeSocialUrl) {
+        // Tương tự kiểm tra nguồn
         if (activeType === 'google-search') {
             const ref = document.referrer || '';
             const isGoogle = ref.includes('google.com') || ref.includes('google.com.vn');
             if (!isGoogle) {
-                showMsg(panel, 'Vui lòng tìm kiếm qua Google trước khi nhấn nút.', true);
+                ui.setContent(`
+                    <div style="color:#c62828;margin-bottom:12px;">❌ Vui lòng tìm kiếm qua Google trước khi nhấn nút.</div>
+                    <button id="tvn_retry_btn" style="background:#e53935;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;">Thử lại</button>
+                `);
+                const retryBtn = document.getElementById('tvn_retry_btn');
+                if (retryBtn) retryBtn.onclick = () => { ui.hidePopup(); btn.style.display = 'inline-flex'; };
                 return false;
             }
         } else if (activeType === 'social' && activeSocialUrl) {
             const ref = document.referrer || '';
             const socialHost = new URL(activeSocialUrl).hostname.replace(/^www\./, '');
-            const refHost = (() => { try { return new URL(ref).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
+            let refHost = '';
+            try { refHost = new URL(ref).hostname.replace(/^www\./, ''); } catch(e) {}
             if (refHost !== socialHost) {
-                showMsg(panel, `Vui lòng truy cập từ ${socialHost} để nhận mã.`, true);
+                ui.setContent(`
+                    <div style="color:#c62828;margin-bottom:12px;">❌ Vui lòng truy cập từ ${socialHost} để nhận mã.</div>
+                    <button id="tvn_retry_btn" style="background:#e53935;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;">Thử lại</button>
+                `);
+                const retryBtn = document.getElementById('tvn_retry_btn');
+                if (retryBtn) retryBtn.onclick = () => { ui.hidePopup(); btn.style.display = 'inline-flex'; };
                 return false;
             }
         }
@@ -368,21 +412,42 @@
             });
             docId = result.docId;
         } catch(e) {
-            showMsg(panel, 'Không thể tạo phiên. Vui lòng thử lại.', true);
+            ui.setContent(`
+                <div style="color:#c62828;margin-bottom:12px;">⚠️ Không thể tạo phiên. Vui lòng thử lại.</div>
+                <button id="tvn_retry_btn" style="background:#e53935;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;">Thử lại</button>
+            `);
+            const retryBtn = document.getElementById('tvn_retry_btn');
+            if (retryBtn) retryBtn.onclick = () => { ui.hidePopup(); btn.style.display = 'inline-flex'; };
             return false;
         }
 
         btn.style.display = 'none';
+        ui.showPopup();
+
         const stepTimestamps = [Date.now()];
+        const updateCountdown = (stepIdx, rem, pct, paused) => {
+            let html = `<div style="font-weight:600;margin-bottom:8px;">Bước ${stepIdx+1}/${planConfig.max_steps}</div>`;
+            html += `<div style="font-size:28px;font-weight:800;color:#e53935;margin:10px 0;">${rem}s</div>`;
+            if (pct >= 0) {
+                html += `<div style="background:#e0e0e0;border-radius:4px;height:6px;margin:8px 0;"><div style="width:${pct}%;height:6px;background:#ffa726;border-radius:4px;"></div></div>`;
+            }
+            if (paused) {
+                html += `<div style="font-size:12px;color:#f39c12;margin-top:6px;">🔁 Hãy cuộn trang để tiếp tục</div>`;
+            } else {
+                html += `<div style="font-size:11px;color:#888;margin-top:6px;">📜 Cuộn trang liên tục (${SCROLL_REQUIRED_PX}px / 10s)</div>`;
+            }
+            ui.setContent(html);
+        };
 
         // Bước 1
-        await countdownWithScroll(panel, planConfig.countdown_times[0], 1);
+        await countdownWithScroll(planConfig.countdown_times[0], 1,
+            (rem, pct, paused) => updateCountdown(0, rem, pct, paused),
+            () => {}
+        );
         stepTimestamps.push(Date.now());
-        try {
-            await apiCall('update_step', { docId, steps_completed: 1 });
-        } catch(e) { /* ignore */ }
+        await apiCall('update_step', { docId, steps_completed: 1 }).catch(e => console.warn);
 
-        // Lưu trạng thái và chờ user chuyển trang
+        // Lưu trạng thái và chờ chuyển trang
         const state = {
             docId,
             plan: planConfig.plan,
@@ -395,38 +460,63 @@
             page_visited: false
         };
         saveState(state);
-        showMsg(panel, '✅ Bước 1 hoàn thành! Hãy nhấp vào một liên kết bất kỳ trên trang để tiếp tục bước 2.', false);
-        // Lắng nghe chuyển trang (thực tế sẽ reload, widget sẽ resume)
+        ui.setContent(`
+            <div style="color:#1565c0;margin:12px 0;">✅ Bước 1 hoàn thành!</div>
+            <div>👉 Hãy nhấp vào một liên kết bất kỳ trên trang để tiếp tục bước 2.</div>
+        `);
+        // Không tự động resume ở đây, sẽ do init() kiểm tra pending state và gọi resume
         return true;
     }
 
-    async function resumeMultiStep(state, panel, btn) {
-        // Nếu đã sang trang khác, cho phép chạy tiếp bước 2
+    async function resumeMultiStep(state, btn, ui) {
+        // Nếu đã rời trang hoặc đánh dấu visited
         if (location.pathname !== state.origin_path || state.page_visited) {
-            // Bước 2 trở đi
-            const stepIndex = state.steps_completed; // đã hoàn thành step 1
-            for (let i = stepIndex; i < state.max_steps; i++) {
-                await countdownWithScroll(panel, state.countdown_times[i], i+1);
-                try {
-                    await apiCall('update_step', { docId: state.docId, steps_completed: i+1 });
-                } catch(e) {}
+            ui.showPopup();
+            const updateCountdown = (stepIdx, rem, pct, paused) => {
+                let html = `<div style="font-weight:600;margin-bottom:8px;">Bước ${stepIdx+1}/${state.max_steps}</div>`;
+                html += `<div style="font-size:28px;font-weight:800;color:#e53935;margin:10px 0;">${rem}s</div>`;
+                if (pct >= 0) html += `<div style="background:#e0e0e0;border-radius:4px;height:6px;margin:8px 0;"><div style="width:${pct}%;height:6px;background:#ffa726;"></div></div>`;
+                if (paused) html += `<div style="font-size:12px;color:#f39c12;">🔁 Cuộn trang để tiếp tục</div>`;
+                else html += `<div style="font-size:11px;color:#888;">📜 Cuộn trang liên tục (${SCROLL_REQUIRED_PX}px / 10s)</div>`;
+                ui.setContent(html);
+            };
+            for (let i = state.steps_completed; i < state.max_steps; i++) {
+                await countdownWithScroll(state.countdown_times[i], i+1,
+                    (rem, pct, paused) => updateCountdown(i, rem, pct, paused),
+                    () => {}
+                );
+                await apiCall('update_step', { docId: state.docId, steps_completed: i+1 }).catch(e=>console.warn);
             }
-            // Finalize
             try {
+                ui.setContent('<div>⌛ Đang xử lý mã...</div>');
                 const finalData = await apiCall('finalize', {
                     docId: state.docId,
                     steps_completed: state.max_steps,
-                    duration_sec: state.countdown_times.reduce((a,b) => a+b, 0)
+                    duration_sec: state.countdown_times.reduce((a,b)=>a+b,0)
                 });
                 clearState();
-                showCodeUI(panel, finalData.code);
+                ui.setContent(`
+                    <div style="margin:12px 0;font-size:22px;font-weight:800;letter-spacing:2px;color:#2e7d32;background:#e8f5e9;padding:8px;border-radius:12px;">${finalData.code}</div>
+                    <button id="tvn_copy_btn" style="background:#2e7d32;color:white;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;">📋 Sao chép mã</button>
+                    <button id="tvn_close_popup_btn" style="background:#aaa;color:white;border:none;border-radius:8px;padding:6px 12px;margin-left:8px;cursor:pointer;">Đóng</button>
+                `);
+                const copyBtn = document.getElementById('tvn_copy_btn');
+                if (copyBtn) copyBtn.onclick = () => copyText(finalData.code, copyBtn);
+                const closeBtn = document.getElementById('tvn_close_popup_btn');
+                if (closeBtn) closeBtn.onclick = () => ui.hidePopup();
             } catch(e) {
-                showMsg(panel, 'Lỗi khi lấy mã: ' + e.message, true);
+                ui.setContent(`
+                    <div style="color:#c62828;margin-bottom:12px;">⚠️ Lỗi lấy mã: ${e.message}</div>
+                    <button id="tvn_retry_btn" style="background:#e53935;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;">Thử lại</button>
+                `);
+                const retryBtn = document.getElementById('tvn_retry_btn');
+                if (retryBtn) retryBtn.onclick = () => { ui.hidePopup(); btn.style.display = 'inline-flex'; clearState(); };
             }
         } else {
             // Chưa rời trang, hiện thông báo và đợi
-            showMsg(panel, '🔁 Hãy nhấp vào một liên kết khác trên trang để tiếp tục.', false);
-            // Đăng ký sự kiện beforeunload để đánh dấu đã rời trang
+            ui.setContent(`
+                <div style="color:#1565c0;margin:12px 0;">🔁 Hãy nhấp vào một liên kết khác trên trang để tiếp tục.</div>
+            `);
             const markVisited = () => {
                 const fresh = loadState();
                 if (fresh && !fresh.page_visited) {
@@ -434,19 +524,18 @@
                 }
             };
             window.addEventListener('beforeunload', markVisited);
-            // Polling kiểm tra nếu pathname thay đổi
             const interval = setInterval(() => {
                 if (location.pathname !== state.origin_path) {
                     clearInterval(interval);
                     window.removeEventListener('beforeunload', markVisited);
-                    resumeMultiStep(state, panel, btn);
+                    resumeMultiStep(state, btn, ui);
                 }
             }, 500);
         }
     }
 
     // ═══════════════════════════════════════════════════════════
-    // KHỞI TẠO WIDGET
+    // KHỞI TẠO
     // ═══════════════════════════════════════════════════════════
     (async function init() {
         const hostname = window.location.hostname;
@@ -455,7 +544,6 @@
         let activeType = null;
         let activeSocialUrl = null;
 
-        // Lấy cấu hình từ backend
         try {
             const cfg = await apiCall('get_config', { hostname });
             if (cfg && cfg.plan && STEP_CONFIG[cfg.plan]) {
@@ -464,31 +552,31 @@
             }
             activeType = cfg.type || null;
             activeSocialUrl = cfg.url_social || null;
-        } catch(e) {
-            console.warn('Không lấy được config, dùng mặc định');
-        }
+        } catch(e) { console.warn(e); }
 
-        const { btn, panel, wrap } = createWidget();
+        const { btn, popup, showPopup, hidePopup, setContent, closeBtn } = createUI();
+        const ui = { showPopup, hidePopup, setContent, closeBtn };
+
+        // Xử lý đóng popup: hủy mọi tiến trình đang chạy? Đơn giản là ẩn popup, không hủy timer (có thể gây rò rỉ) nhưng tạm chấp nhận
+        closeBtn.onclick = () => { hidePopup(); };
+
         let busy = false;
-
-        // Kiểm tra session đang dang dở
         const pending = loadState();
         if (pending && pending.hostname === hostname && pending.steps_completed >= 1 && pending.steps_completed < pending.max_steps) {
             busy = true;
             btn.style.display = 'none';
-            resumeMultiStep(pending, panel, btn);
+            await resumeMultiStep(pending, btn, ui);
         } else {
-            btn.addEventListener('click', async () => {
+            btn.onclick = async () => {
                 if (busy) return;
                 busy = true;
-
                 if (planConfig.max_steps === 1) {
-                    await runSimpleFlow(panel, btn, { plan: activePlan, countdown_times: planConfig.countdown_times }, hostname, activeType, activeSocialUrl);
+                    await runSimpleFlow(btn, ui, { plan: activePlan, countdown_times: planConfig.countdown_times }, hostname, activeType, activeSocialUrl);
                 } else {
-                    await runMultiStepFlow(panel, btn, { plan: activePlan, max_steps: planConfig.max_steps, countdown_times: planConfig.countdown_times }, hostname, activeType, activeSocialUrl);
+                    await runMultiStepFlow(btn, ui, { plan: activePlan, max_steps: planConfig.max_steps, countdown_times: planConfig.countdown_times }, hostname, activeType, activeSocialUrl);
                 }
                 busy = false;
-            });
+            };
         }
     })();
 })();
