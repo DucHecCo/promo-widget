@@ -1,47 +1,17 @@
-(async () => {
+(function() {
+    'use strict';
 
-    const _p = '_' + Math.random().toString(36).slice(2, 8);
-    const uid  = name => `${_p}-${name}`;
-    const ucls = name => `${_p}_${name}`;
+    // ═══════════════════════════════════════════════════════════
+    // CẤU HÌNH
+    // ═══════════════════════════════════════════════════════════
+    const API_ENDPOINT = 'https://trafficvn.com/get-code';
+    const LOGO_URL     = 'https://trafficvn.com/uploads/logo_1775881215_9a6524dc.png';
 
-    const API = 'https://trafficvn.com/get-code.php';
+    // Cấu hình cuộn: mỗi 10 giây cần cuộn ít nhất 600px
+    const SCROLL_CYCLE_MS = 10000;   // 10 giây
+    const SCROLL_REQUIRED_PX = 600;  // pixel cần cuộn trong mỗi chu kỳ
 
-    async function apiCall(action, payload = {}) {
-        const res = await fetch(API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, ...payload }),
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.error || 'API error');
-        return json.data;
-    }
-
-    function getStaticCode() {
-        return 'XINCHAO2026';
-    }
-
-    function isFromGoogle() {
-        try {
-            const ref = document.referrer;
-            if (!ref) return false;
-            const host = new URL(ref).hostname.toLowerCase();
-            return host === 'google.com' || host.endsWith('.google.com');
-        } catch { return false; }
-    }
-
-    function isFromSocialUrl(urlSocial) {
-        try {
-            if (!urlSocial) return false;
-            const ref = document.referrer;
-            if (!ref) return false;
-            const refHost    = new URL(ref).hostname.toLowerCase();
-            const socialHost = new URL(urlSocial).hostname.toLowerCase();
-            return refHost === socialHost || refHost.endsWith('.' + socialHost);
-        } catch { return false; }
-    }
-
+    // Các step config mặc định (backend sẽ ghi đè theo campaign)
     const STEP_CONFIG = {
         '1step_60':  { max_steps: 1, countdown_times: [60]      },
         '1step_90':  { max_steps: 1, countdown_times: [90]      },
@@ -49,58 +19,28 @@
         '2step_75':  { max_steps: 2, countdown_times: [60,  15] },
         '2step_90':  { max_steps: 2, countdown_times: [70,  20] },
         '2step_120': { max_steps: 2, countdown_times: [90,  30] },
+        '3step_90':  { max_steps: 3, countdown_times: [60, 15, 15] },
+        '3step_120': { max_steps: 3, countdown_times: [90, 15, 15] },
+        '3step_150': { max_steps: 3, countdown_times: [120,15, 15] },
     };
-
-    const DEFAULT_PLAN    = '1step_60';
+    const DEFAULT_PLAN = '1step_60';
     const CLAIM_STORE_KEY = '_mkm_session';
     const CLAIM_STORE_TTL = 3 * 60 * 1000;
 
-    const CFG = {
-        btnLabel: 'LẤY MÃ',
-        btnColor: '#e53935',
-        btnHover: '#b71c1c',
-    };
-
-    const RANDOM_EXTRA_MIN = 0;
-    const RANDOM_EXTRA_MAX = 30;
-
-    function randomExtra() {
-        return Math.floor(Math.random() * (RANDOM_EXTRA_MAX - RANDOM_EXTRA_MIN + 1)) + RANDOM_EXTRA_MIN;
+    // ═══════════════════════════════════════════════════════════
+    // HÀM TIỆN ÍCH
+    // ═══════════════════════════════════════════════════════════
+    function uid(name) {
+        return '_' + Math.random().toString(36).slice(2, 8) + '_' + name;
     }
 
-    function applyRandomToTimes(times) {
-        return times.map(t => t + randomExtra());
+    function saveState(state) {
+        localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({
+            ...state,
+            _savedAt: Date.now()
+        }));
     }
-
-    const hostname = window.location.hostname;
-    let activePlan    = DEFAULT_PLAN;
-    let activeStepCfg = STEP_CONFIG[DEFAULT_PLAN];
-    let activeType      = null;
-    let activeSocialUrl = null;
-
-    try {
-        const cfg = await apiCall('get_config', { hostname });
-        if (cfg && cfg.plan && STEP_CONFIG[cfg.plan]) {
-            activePlan    = cfg.plan;
-            activeStepCfg = STEP_CONFIG[cfg.plan];
-        }
-        if (cfg && (cfg.type === 'direct' || cfg.type === 'google-search' || cfg.type === 'social')) {
-            activeType = cfg.type;
-        }
-        if (cfg && cfg.type === 'social' && cfg.url_social) {
-            activeSocialUrl = cfg.url_social;
-        }
-    } catch (e) {}
-
-    activeStepCfg = {
-        ...activeStepCfg,
-        countdown_times: applyRandomToTimes(activeStepCfg.countdown_times),
-    };
-
-    const saveState  = v => localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({
-        ...v, _savedAt: Date.now(),
-    }));
-    const loadState  = () => {
+    function loadState() {
         try {
             const raw = JSON.parse(localStorage.getItem(CLAIM_STORE_KEY));
             if (!raw) return null;
@@ -109,11 +49,49 @@
                 return null;
             }
             return raw;
-        } catch { return null; }
-    };
-    const clearState = () => localStorage.removeItem(CLAIM_STORE_KEY);
+        } catch(e) { return null; }
+    }
+    function clearState() {
+        localStorage.removeItem(CLAIM_STORE_KEY);
+    }
 
-    function getFixedContainer() {
+    async function apiCall(action, payload = {}) {
+        const res = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...payload })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || 'API error');
+        return json.data;
+    }
+
+    function copyText(text, btnEl) {
+        const done = () => {
+            btnEl.classList.add('copied');
+            btnEl.textContent = 'Đã sao chép!';
+            setTimeout(() => {
+                btnEl.classList.remove('copied');
+                btnEl.textContent = 'Sao chép mã';
+            }, 2500);
+        };
+        navigator.clipboard?.writeText(text).then(done).catch(() => {
+            const ta = Object.assign(document.createElement('textarea'), {
+                value: text,
+                style: 'position:fixed;opacity:0'
+            });
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); done(); } catch(e) {}
+            document.body.removeChild(ta);
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // TẠO GIAO DIỆN (chỉ logo, không text)
+    // ═══════════════════════════════════════════════════════════
+    function getContainer() {
         let container = document.getElementById('ma_km_2026_vip');
         if (!container) {
             container = document.createElement('div');
@@ -125,497 +103,392 @@
         return container;
     }
 
-    function createWidgetInContainer() {
-        const container = getFixedContainer();
+    function createWidget() {
+        const container = getContainer();
         container.innerHTML = '';
 
-        const wid = uid('w_fixed');
-        const bid = uid('b_fixed');
-        const pid = uid('p_fixed');
-
-        const btnStyle = `
-            display:inline-flex;align-items:center;gap:6px;padding:7px 16px;
-            background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
-            font-size:12px;font-weight:700;font-family:'Be Vietnam Pro','Inter',sans-serif;
-            letter-spacing:0.04em;cursor:pointer;
-            box-shadow:0 2px 8px rgba(229,57,53,0.28);
-            transition:background .2s,transform .15s;
-        `;
+        const wrapId = uid('wrap');
+        const btnId  = uid('btn');
+        const panelId = uid('panel');
 
         const wrap = document.createElement('div');
-        wrap.id = wid;
-        wrap.style.cssText = 'display:block;width:100%;text-align:center;';
-        wrap.innerHTML = `
-            <button id="${bid}" style="${btnStyle}">
-                <img src="https://trafficvn.com/uploads/favicon_1772707655.png"
-                     style="width:13px;height:13px;filter:brightness(0) invert(1);" alt="">
-                <span>${CFG.btnLabel}</span>
-            </button>
-            <div id="${pid}" class="${ucls('panel')}" style="margin-top:10px;"></div>
-        `;
+        wrap.id = wrapId;
+        wrap.style.cssText = 'display:flex;justify-content:center;align-items:center;margin:8px 0;';
 
+        // Nút chỉ hiển thị ảnh logo, không có text
+        const btn = document.createElement('button');
+        btn.id = btnId;
+        btn.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 90px;
+            height: 80px;
+            border: none;
+            background: transparent;
+            border-radius: 16px;
+            cursor: pointer;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 4px 18px rgba(0,0,0,.14), 0 1px 4px rgba(0,0,0,.08);
+            transition: box-shadow .2s, transform .18s;
+        `;
+        btn.innerHTML = `<img src="${LOGO_URL}" alt="Xác minh" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onerror="this.style.display='none'">`;
+        btn.onmouseenter = () => btn.style.transform = 'translateY(-3px)';
+        btn.onmouseleave = () => btn.style.transform = 'translateY(0)';
+
+        const panel = document.createElement('div');
+        panel.id = panelId;
+        panel.style.cssText = 'margin-top:10px;text-align:center;';
+
+        wrap.appendChild(btn);
+        wrap.appendChild(panel);
         container.appendChild(wrap);
 
-        const btnEl   = document.getElementById(bid);
-        const panelEl = document.getElementById(pid);
-        if (!btnEl || !panelEl) return null;
-        return { wrapEl: wrap, btnEl, panelEl };
+        return { btn, panel, wrap };
     }
 
-    let activeWidget = null;
-    let busy = false;
-
-    activeWidget = createWidgetInContainer();
-    if (!activeWidget) return;
-
-    function hidePanel(panelEl) {
-        panelEl.className = ucls('panel');
-        panelEl.innerHTML = '';
+    // ═══════════════════════════════════════════════════════════
+    // HIỂN THỊ CÁC TRẠNG THÁI
+    // ═══════════════════════════════════════════════════════════
+    function showCodeUI(panel, code) {
+        const copyId = uid('copy');
+        panel.innerHTML = `
+            <div style="display:inline-flex;flex-direction:column;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;background:#fafafa;border:1px solid #eee;max-width:260px;">
+                <div style="font-size:10px;font-weight:600;color:#558b2f;">Mã của bạn</div>
+                <div style="padding:5px 12px;background:#f1f8e9;border:1.5px dashed #aed581;border-radius:6px;font-size:18px;font-weight:800;letter-spacing:3px;color:#33691e;font-family:'Courier New',monospace;">${code}</div>
+                <button id="${copyId}" style="display:inline-flex;width:100%;padding:5px 10px;background:#558b2f;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Sao chép mã</button>
+            </div>
+        `;
+        const copyBtn = document.getElementById(copyId);
+        if (copyBtn) copyBtn.addEventListener('click', () => copyText(code, copyBtn));
     }
 
-    function wrapCenter(innerHtml) {
-        return `<div style="display:flex;justify-content:center;"><div class="${ucls('card')}">${innerHtml}</div></div>`;
+    function showMsg(panel, text, isError = false) {
+        panel.innerHTML = `
+            <div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:8px;background:#fff5f5;border:1px solid #ffcdd2;">
+                <div style="font-size:11px;font-weight:600;color:${isError ? '#c62828' : '#1565c0'};">${text}</div>
+            </div>
+        `;
     }
 
-    function wrapCenterSmall(innerHtml) {
-        return `<div style="display:flex;justify-content:center;"><div class="${ucls('card_sm')}">${innerHtml}</div></div>`;
+    function showCountdownUI(panel, secondsRemaining, requiredScrollPct = -1, paused = false) {
+        const pct = requiredScrollPct >= 0 ? Math.min(100, requiredScrollPct) : 0;
+        panel.innerHTML = `
+            <div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:12px;background:#fff;border:1px solid #e0e0e0;min-width:130px;">
+                <div style="font-size:20px;font-weight:800;color:#e53935;">${secondsRemaining}s</div>
+                ${requiredScrollPct >= 0 ? `
+                    <div style="width:100%;height:3px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#ffcc80,#ffa726);transition:width .3s;"></div>
+                    </div>
+                ` : ''}
+                ${paused ? '<div style="font-size:9px;color:#9e9e9e;">⚠️ Hãy cuộn trang để tiếp tục</div>' : ''}
+                ${requiredScrollPct < 0 ? '<div style="font-size:9px;color:#888;">Vui lòng cuộn trang liên tục</div>' : ''}
+            </div>
+        `;
     }
 
-    function showCodeUI(panelEl, code) {
-        const cid = uid('c');
-        panelEl.className = ucls('panel');
-        panelEl.innerHTML = wrapCenter(`
-            <div class="${ucls('code_label')}">Mã của bạn</div>
-            <div class="${ucls('codebox')}">${code}</div>
-            <button class="${ucls('copybtn')}" id="${cid}">Sao chép mã</button>
-        `);
-        document.getElementById(cid)?.addEventListener('click', () =>
-            copyText(code, document.getElementById(cid))
-        );
-    }
+    // ═══════════════════════════════════════════════════════════
+    // COUNTDOWN VỚI KIỂM TRA CUỘN MỖI 10 GIÂY
+    // ═══════════════════════════════════════════════════════════
+    async function countdownWithScroll(panel, totalSeconds, stepIndex) {
+        return new Promise(async (resolve) => {
+            let remaining = totalSeconds;
+            let active = true;          // true = timer đang chạy, false = tạm dừng do không cuộn
+            let cycleStart = Date.now();
+            let accumulatedScroll = 0;
+            let lastScrollY = window.scrollY;
+            let lastRemaining = remaining;
+            let intervalId = null;
+            let scrollListener = null;
 
-    function showMsgUI(panelEl, text, type) {
-        panelEl.className = ucls('panel');
-        panelEl.innerHTML = wrapCenter(`
-            <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
-        `);
-    }
+            // Hàm cập nhật giao diện
+            function updateUI() {
+                const pct = Math.min(100, Math.round((accumulatedScroll / SCROLL_REQUIRED_PX) * 100));
+                showCountdownUI(panel, remaining, pct, !active);
+            }
 
-    function showMsgWithBtn(panelEl, text, type, btnId, btnLabel) {
-        panelEl.className = ucls('panel');
-        panelEl.innerHTML = wrapCenter(`
-            <div class="${ucls('msg_text')} ${ucls('msg_' + type)}">${text}</div>
-            <button class="${ucls('retrybtn')}" id="${btnId}">${btnLabel}</button>
-        `);
-    }
+            // Kiểm tra scroll
+            function onScroll() {
+                const now = Date.now();
+                const delta = Math.abs(window.scrollY - lastScrollY);
+                lastScrollY = window.scrollY;
+                accumulatedScroll += delta;
 
-    function broadcastCodeUI(code) {
-        if (activeWidget) showCodeUI(activeWidget.panelEl, code);
-    }
+                // Nếu đã đủ scroll trong chu kỳ hiện tại
+                if (accumulatedScroll >= SCROLL_REQUIRED_PX) {
+                    if (!active) {
+                        // Nếu đang tạm dừng do thiếu scroll, cho chạy lại
+                        active = true;
+                        updateUI();
+                    }
+                    // Reset chu kỳ mới
+                    cycleStart = now;
+                    accumulatedScroll = 0;
+                }
+                updateUI();
+            }
 
-    function copyText(text, el) {
-        const done = () => {
-            el.classList.add(ucls('copied')); el.textContent = 'Đã sao chép!';
-            setTimeout(() => { el.classList.remove(ucls('copied')); el.textContent = 'Sao chép mã'; }, 2500);
-        };
-        navigator.clipboard?.writeText(text).then(done).catch(() => {
-            const ta = Object.assign(document.createElement('textarea'),
-                { value: text, style: 'position:fixed;opacity:0' });
-            document.body.appendChild(ta); ta.select();
-            try { document.execCommand('copy'); done(); } catch (_) {}
-            document.body.removeChild(ta);
+            // Kiểm tra chu kỳ mỗi 0.5 giây
+            function checkCycle() {
+                const now = Date.now();
+                if (now - cycleStart >= SCROLL_CYCLE_MS) {
+                    // Hết 10s mà chưa đủ scroll => tạm dừng đếm ngược
+                    if (accumulatedScroll < SCROLL_REQUIRED_PX) {
+                        if (active) {
+                            active = false;
+                            updateUI();
+                        }
+                    } else {
+                        // Đủ scroll, reset chu kỳ
+                        cycleStart = now;
+                        accumulatedScroll = 0;
+                        if (!active) {
+                            active = true;
+                            updateUI();
+                        }
+                    }
+                }
+                updateUI();
+            }
+
+            // Bộ đếm thời gian chính
+            function timerLoop() {
+                if (!active) return;
+                remaining--;
+                if (remaining <= 0) {
+                    // Kết thúc
+                    if (intervalId) clearInterval(intervalId);
+                    if (scrollListener) window.removeEventListener('scroll', scrollListener);
+                    resolve();
+                } else {
+                    updateUI();
+                }
+            }
+
+            // Khởi tạo
+            window.addEventListener('scroll', onScroll);
+            scrollListener = onScroll;
+            intervalId = setInterval(() => {
+                checkCycle();
+                timerLoop();
+            }, 1000);
+            updateUI();
         });
     }
 
-    function countdown(stepIdx, totalSteps, seconds) {
-        return new Promise(resolve => {
-            let rem = seconds;
-            let ivId = null;
-            const panelEl = activeWidget.panelEl;
+    // ═══════════════════════════════════════════════════════════
+    // LUỒNG CHÍNH
+    // ═══════════════════════════════════════════════════════════
+    async function runSimpleFlow(panel, btn, planConfig, hostname, activeType, activeSocialUrl) {
+        // Kiểm tra nguồn truy cập nếu cần (giữ nguyên logic cũ)
+        if (activeType === 'google-search') {
+            const ref = document.referrer || '';
+            const isGoogle = ref.includes('google.com') || ref.includes('google.com.vn');
+            if (!isGoogle) {
+                showMsg(panel, 'Vui lòng tìm kiếm qua Google trước khi nhấn nút.', true);
+                return false;
+            }
+        } else if (activeType === 'social' && activeSocialUrl) {
+            const ref = document.referrer || '';
+            const socialHost = new URL(activeSocialUrl).hostname.replace(/^www\./, '');
+            const refHost = (() => { try { return new URL(ref).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
+            if (refHost !== socialHost) {
+                showMsg(panel, `Vui lòng truy cập từ ${socialHost} để nhận mã.`, true);
+                return false;
+            }
+        }
 
-            const isPaused = () => document.hidden || !document.hasFocus();
-
-            const render = (r, paused) => {
-                const pct = Math.round((1 - r / seconds) * 100);
-                panelEl.className = ucls('panel');
-                panelEl.innerHTML = wrapCenterSmall(`
-                    <div class="${ucls('countdown_num')}">${r}</div>
-                    <div class="${ucls('progress')}"><div class="${ucls('bar')}" style="width:${pct}%"></div></div>
-                    ${paused ? `<div class="${ucls('paused')}">Quay lại trang để tiếp tục</div>` : '<div class="' + ucls('paused') + '" style="opacity:0">·</div>'}
-                `);
-            };
-
-            const stopTimer  = () => { if (ivId) { clearInterval(ivId); ivId = null; } };
-            const startTimer = () => {
-                if (ivId) return;
-                ivId = setInterval(() => {
-                    rem--;
-                    if (rem <= 0) { stopTimer(); removeListeners(); resolve(); }
-                    else render(rem, false);
-                }, 1000);
-            };
-
-            const onVisible = () => isPaused() ? (stopTimer(), render(rem, true)) : (render(rem, false), startTimer());
-            const onFocus   = () => { if (!isPaused()) { render(rem, false); startTimer(); } };
-            const onBlur    = () => { stopTimer(); render(rem, true); };
-
-            const removeListeners = () => {
-                document.removeEventListener('visibilitychange', onVisible);
-                window.removeEventListener('focus', onFocus);
-                window.removeEventListener('blur', onBlur);
-            };
-
-            document.addEventListener('visibilitychange', onVisible);
-            window.addEventListener('focus', onFocus);
-            window.addEventListener('blur', onBlur);
-
-            render(rem, isPaused());
-            if (!isPaused()) startTimer();
-        });
-    }
-
-    async function finalizeAndShow(state, stepTimestamps) {
-        hidePanel(activeWidget.panelEl);
-        const claimedAtMs = Date.now();
-        const durSec      = Math.round((claimedAtMs - stepTimestamps[0]) / 1000);
-
+        // Tạo phiên
+        let docId;
         try {
-            const result = await apiCall('finalize', {
-                docId:           state.docId,
-                steps_completed: state.max_steps,
-                step_timestamps: stepTimestamps,
-                claimed_at_ms:   claimedAtMs,
-                duration_sec:    durSec,
+            const result = await apiCall('create', {
+                data: {
+                    hostname,
+                    domain: window.location.origin,
+                    plan: planConfig.plan,
+                    max_steps: 1,
+                    referrer: document.referrer || ''
+                }
+            });
+            docId = result.docId;
+        } catch(e) {
+            showMsg(panel, 'Không thể tạo phiên. Vui lòng thử lại.', true);
+            return false;
+        }
+
+        // Ẩn nút, bắt đầu đếm ngược có cuộn
+        btn.style.display = 'none';
+        await countdownWithScroll(panel, planConfig.countdown_times[0], 1);
+
+        // Finalize
+        try {
+            const finalData = await apiCall('finalize', {
+                docId,
+                steps_completed: 1,
+                duration_sec: planConfig.countdown_times[0]
             });
             clearState();
-            broadcastCodeUI(result.code);
-        } catch (e) {
-            const rid = uid('r');
-            showMsgWithBtn(
-                activeWidget.panelEl,
-                'Không lưu được mã. Vui lòng thử lại.', 'warn',
-                rid, 'Thử lại'
-            );
-            document.getElementById(rid)?.addEventListener('click',
-                () => finalizeAndShow(state, stepTimestamps));
+            showCodeUI(panel, finalData.code);
+        } catch(e) {
+            showMsg(panel, 'Lỗi khi lấy mã: ' + e.message, true);
         }
+        return true;
     }
 
-    async function runSimpleFlow() {
-        busy = true;
-        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
-        hidePanel(activeWidget.panelEl);
+    async function runMultiStepFlow(panel, btn, planConfig, hostname, activeType, activeSocialUrl) {
+        // Tương tự như trên nhưng có update_step
+        if (activeType === 'google-search') {
+            const ref = document.referrer || '';
+            const isGoogle = ref.includes('google.com') || ref.includes('google.com.vn');
+            if (!isGoogle) {
+                showMsg(panel, 'Vui lòng tìm kiếm qua Google trước khi nhấn nút.', true);
+                return false;
+            }
+        } else if (activeType === 'social' && activeSocialUrl) {
+            const ref = document.referrer || '';
+            const socialHost = new URL(activeSocialUrl).hostname.replace(/^www\./, '');
+            const refHost = (() => { try { return new URL(ref).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
+            if (refHost !== socialHost) {
+                showMsg(panel, `Vui lòng truy cập từ ${socialHost} để nhận mã.`, true);
+                return false;
+            }
+        }
 
-        const startedAtMs    = Date.now();
-        const stepTimestamps = [startedAtMs];
         let docId;
-
         try {
             const result = await apiCall('create', {
                 data: {
-                    hostname, domain: window.location.origin,
-                    plan: activePlan, max_steps: 1,
-                    countdown_times: activeStepCfg.countdown_times,
-                    started_at: startedAtMs, step_timestamps: stepTimestamps,
-                    referrer: document.referrer || '',
-                },
+                    hostname,
+                    domain: window.location.origin,
+                    plan: planConfig.plan,
+                    max_steps: planConfig.max_steps,
+                    referrer: document.referrer || ''
+                }
             });
             docId = result.docId;
-        } catch (e) {
-            showMsgUI(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
-            busy = false; return;
+        } catch(e) {
+            showMsg(panel, 'Không thể tạo phiên. Vui lòng thử lại.', true);
+            return false;
         }
 
-        await countdown(0, 1, activeStepCfg.countdown_times[0]);
-        await finalizeAndShow({ docId, max_steps: 1 }, stepTimestamps);
-    }
+        btn.style.display = 'none';
+        const stepTimestamps = [Date.now()];
 
-    async function runMultiStepFlow() {
-        busy = true;
-        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
-        hidePanel(activeWidget.panelEl);
-
-        const startedAtMs = Date.now();
-        let docId;
-
+        // Bước 1
+        await countdownWithScroll(panel, planConfig.countdown_times[0], 1);
+        stepTimestamps.push(Date.now());
         try {
-            const result = await apiCall('create', {
-                data: {
-                    hostname, domain: window.location.origin,
-                    plan: activePlan, max_steps: activeStepCfg.max_steps,
-                    countdown_times: activeStepCfg.countdown_times,
-                    started_at: startedAtMs, step_timestamps: [startedAtMs],
-                    referrer: document.referrer || '',
-                },
-            });
-            docId = result.docId;
-        } catch (e) {
-            showMsgUI(activeWidget.panelEl, 'Không kết nối được. Vui lòng tải lại trang.', 'error');
-            busy = false; return;
-        }
+            await apiCall('update_step', { docId, steps_completed: 1 });
+        } catch(e) { /* ignore */ }
 
-        await countdown(0, activeStepCfg.max_steps, activeStepCfg.countdown_times[0]);
-
-        const step1DoneMs    = Date.now();
-        const stepTimestamps = [startedAtMs, step1DoneMs];
-
-        try {
-            await apiCall('update_step', {
-                docId, steps_completed: 1,
-                step_timestamps: stepTimestamps,
-                step1_completed_at: step1DoneMs,
-            });
-        } catch (e) {}
-
+        // Lưu trạng thái và chờ user chuyển trang
         const state = {
-            docId, plan: activePlan,
-            max_steps: activeStepCfg.max_steps,
-            countdown_times: activeStepCfg.countdown_times,
-            step_starts: stepTimestamps, steps_completed: 1,
-            hostname, origin_path: location.pathname,
-            page_visited: false,
+            docId,
+            plan: planConfig.plan,
+            max_steps: planConfig.max_steps,
+            countdown_times: planConfig.countdown_times,
+            step_starts: stepTimestamps,
+            steps_completed: 1,
+            hostname,
+            origin_path: location.pathname,
+            page_visited: false
         };
         saveState(state);
-        showWaitNextPage(state);
+        showMsg(panel, '✅ Bước 1 hoàn thành! Hãy nhấp vào một liên kết bất kỳ trên trang để tiếp tục bước 2.', false);
+        // Lắng nghe chuyển trang (thực tế sẽ reload, widget sẽ resume)
+        return true;
     }
 
-    function showWaitNextPage(state) {
-        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
-        const originPath = state.origin_path || location.pathname;
-
-        function renderWait(unlocked) {
-            const nid = uid('n');
-            activeWidget.panelEl.className = ucls('panel');
-            activeWidget.panelEl.innerHTML = wrapCenter(`
-                <div class="${ucls('msg_text')} ${ucls('msg_info')}">Vui lòng click vào link bất kỳ trên website để nhận mã!</div>
-                ${unlocked ? `<button class="${ucls('nextbtn')}" id="${nid}">NHẬN MÃ NGAY</button>` : ''}
-            `);
-            if (unlocked) {
-                document.getElementById(nid)?.addEventListener('click', () => runStep2(state));
+    async function resumeMultiStep(state, panel, btn) {
+        // Nếu đã sang trang khác, cho phép chạy tiếp bước 2
+        if (location.pathname !== state.origin_path || state.page_visited) {
+            // Bước 2 trở đi
+            const stepIndex = state.steps_completed; // đã hoàn thành step 1
+            for (let i = stepIndex; i < state.max_steps; i++) {
+                await countdownWithScroll(panel, state.countdown_times[i], i+1);
+                try {
+                    await apiCall('update_step', { docId: state.docId, steps_completed: i+1 });
+                } catch(e) {}
             }
-        }
-
-        const unlocked = state.page_visited === true || location.pathname !== originPath;
-        renderWait(unlocked);
-
-        if (!unlocked) {
-            const onBeforeUnload = () => {
-                if (location.pathname !== originPath) {
-                    const fresh = loadState();
-                    if (fresh) saveState({ ...fresh, page_visited: true });
+            // Finalize
+            try {
+                const finalData = await apiCall('finalize', {
+                    docId: state.docId,
+                    steps_completed: state.max_steps,
+                    duration_sec: state.countdown_times.reduce((a,b) => a+b, 0)
+                });
+                clearState();
+                showCodeUI(panel, finalData.code);
+            } catch(e) {
+                showMsg(panel, 'Lỗi khi lấy mã: ' + e.message, true);
+            }
+        } else {
+            // Chưa rời trang, hiện thông báo và đợi
+            showMsg(panel, '🔁 Hãy nhấp vào một liên kết khác trên trang để tiếp tục.', false);
+            // Đăng ký sự kiện beforeunload để đánh dấu đã rời trang
+            const markVisited = () => {
+                const fresh = loadState();
+                if (fresh && !fresh.page_visited) {
+                    saveState({ ...fresh, page_visited: true });
                 }
             };
-            window.addEventListener('beforeunload', onBeforeUnload);
-
-            const pollId = setInterval(() => {
-                if (location.pathname !== originPath) {
-                    clearInterval(pollId);
-                    window.removeEventListener('beforeunload', onBeforeUnload);
-                    const fresh = loadState();
-                    if (fresh) saveState({ ...fresh, page_visited: true });
-                    renderWait(true);
+            window.addEventListener('beforeunload', markVisited);
+            // Polling kiểm tra nếu pathname thay đổi
+            const interval = setInterval(() => {
+                if (location.pathname !== state.origin_path) {
+                    clearInterval(interval);
+                    window.removeEventListener('beforeunload', markVisited);
+                    resumeMultiStep(state, panel, btn);
                 }
-            }, 800);
+            }, 500);
         }
     }
 
-    async function runStep2(state) {
-        const stepTimestamps = [...state.step_starts];
+    // ═══════════════════════════════════════════════════════════
+    // KHỞI TẠO WIDGET
+    // ═══════════════════════════════════════════════════════════
+    (async function init() {
+        const hostname = window.location.hostname;
+        let activePlan = DEFAULT_PLAN;
+        let planConfig = STEP_CONFIG[DEFAULT_PLAN];
+        let activeType = null;
+        let activeSocialUrl = null;
 
-        for (let i = 1; i < state.max_steps; i++) {
-            await countdown(i, state.max_steps, state.countdown_times[i]);
-
-            const stepDoneMs = Date.now();
-            stepTimestamps.push(stepDoneMs);
-
-            try {
-                await apiCall('update_step', {
-                    docId: state.docId,
-                    steps_completed: i + 1,
-                    step_timestamps: stepTimestamps,
-                    [`step${i + 1}_completed_at`]: stepDoneMs,
-                });
-            } catch (e) {}
-        }
-
-        await finalizeAndShow(
-            { docId: state.docId, max_steps: state.max_steps },
-            stepTimestamps
-        );
-    }
-
-    function handleResume(state) {
-        busy = true;
-        if (activeWidget.btnEl) activeWidget.btnEl.style.display = 'none';
-        if (state.steps_completed >= 1) showWaitNextPage(state);
-        else { clearState(); busy = false; }
-    }
-
-    const pending = loadState();
-    if (pending && pending.hostname === hostname) {
-        handleResume(pending);
-    } else {
-        activeWidget.btnEl.addEventListener('click', () => {
-            if (busy) return;
-
-            if (activeType === null) {
-                showMsgUI(
-                    activeWidget.panelEl,
-                    'Cấu hình không hợp lệ. Vui lòng liên hệ quản trị viên.', 'error'
-                );
-                return;
+        // Lấy cấu hình từ backend
+        try {
+            const cfg = await apiCall('get_config', { hostname });
+            if (cfg && cfg.plan && STEP_CONFIG[cfg.plan]) {
+                activePlan = cfg.plan;
+                planConfig = STEP_CONFIG[cfg.plan];
             }
+            activeType = cfg.type || null;
+            activeSocialUrl = cfg.url_social || null;
+        } catch(e) {
+            console.warn('Không lấy được config, dùng mặc định');
+        }
 
-            const runFlow = () => activeStepCfg.max_steps === 1
-                ? runSimpleFlow()
-                : runMultiStepFlow();
+        const { btn, panel, wrap } = createWidget();
+        let busy = false;
 
-            if (activeType === 'direct') {
-                runFlow();
-            } else if (activeType === 'google-search') {
-                if (!isFromGoogle()) {
-                    busy = true;
-                    activeWidget.btnEl.style.display = 'none';
-                    broadcastCodeUI(getStaticCode());
-                    return;
+        // Kiểm tra session đang dang dở
+        const pending = loadState();
+        if (pending && pending.hostname === hostname && pending.steps_completed >= 1 && pending.steps_completed < pending.max_steps) {
+            busy = true;
+            btn.style.display = 'none';
+            resumeMultiStep(pending, panel, btn);
+        } else {
+            btn.addEventListener('click', async () => {
+                if (busy) return;
+                busy = true;
+
+                if (planConfig.max_steps === 1) {
+                    await runSimpleFlow(panel, btn, { plan: activePlan, countdown_times: planConfig.countdown_times }, hostname, activeType, activeSocialUrl);
+                } else {
+                    await runMultiStepFlow(panel, btn, { plan: activePlan, max_steps: planConfig.max_steps, countdown_times: planConfig.countdown_times }, hostname, activeType, activeSocialUrl);
                 }
-                runFlow();
-            } else if (activeType === 'social') {
-                if (!isFromSocialUrl(activeSocialUrl)) {
-                    busy = true;
-                    activeWidget.btnEl.style.display = 'none';
-                    broadcastCodeUI(getStaticCode());
-                    return;
-                }
-                runFlow();
-            }
-        });
-    }
-
-    document.head.insertAdjacentHTML('beforeend', `<style>
-        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap');
-
-        [id^="${_p}-w_"],[id^="${_p}-w_"] *{
-            box-sizing:border-box;
-            font-family:'Be Vietnam Pro',sans-serif;
+                busy = false;
+            });
         }
-
-        [id^="${_p}-b_"]{
-            display:inline-flex;align-items:center;gap:6px;
-            background:${CFG.btnColor};color:#fff;border:none;border-radius:7px;
-            font-weight:700;cursor:pointer;-webkit-appearance:none;
-            transition:background .2s,transform .15s;
-            box-shadow:0 2px 8px rgba(229,57,53,.28);
-            padding:7px 16px;font-size:12px;letter-spacing:0.04em;
-        }
-        [id^="${_p}-b_"]:hover{background:${CFG.btnHover};transform:translateY(-1px);}
-
-        .${ucls('panel')}{
-            margin-top:8px;
-            text-align:center;
-        }
-        .${ucls('panel')}:empty{display:none;}
-
-        .${ucls('card')}{
-            display:inline-flex;
-            flex-direction:column;
-            align-items:center;
-            gap:6px;
-            padding:10px 16px;
-            border-radius:10px;
-            background:#fafafa;
-            border:1px solid #eeeeee;
-            min-width:0;
-            max-width:260px;
-            width:100%;
-        }
-
-        .${ucls('card_sm')}{
-            display:inline-flex;
-            flex-direction:column;
-            align-items:center;
-            gap:3px;
-            padding:5px 10px;
-            border-radius:8px;
-            background:#fafafa;
-            border:1px solid #eeeeee;
-            min-width:0;
-            max-width:130px;
-            width:100%;
-        }
-
-        .${ucls('code_label')}{
-            font-size:10px;font-weight:600;color:#558b2f;
-            letter-spacing:0.03em;
-        }
-        .${ucls('codebox')}{
-            display:block;
-            padding:5px 12px;
-            background:#f1f8e9;
-            border:1.5px dashed #aed581;
-            border-radius:6px;
-            font-size:18px;font-weight:800;
-            letter-spacing:3px;color:#33691e;
-            font-family:'Courier New',monospace;
-            white-space:nowrap;
-        }
-        .${ucls('copybtn')}{
-            display:inline-flex;align-items:center;justify-content:center;
-            width:100%;padding:5px 10px;
-            background:#558b2f;color:#fff;border:none;border-radius:6px;
-            font-size:11px;font-weight:700;cursor:pointer;
-            transition:background .2s;
-        }
-        .${ucls('copybtn')}:hover{background:#33691e;}
-        .${ucls('copied')}{background:#00695c !important;}
-
-        .${ucls('countdown_num')}{
-            font-size:18px;font-weight:800;color:#fff;
-            background:${CFG.btnColor};
-            border-radius:5px;
-            padding:1px 12px;
-            line-height:1.4;
-            letter-spacing:0.02em;
-        }
-        .${ucls('progress')}{
-            width:100%;height:2px;
-            background:#e0e0e0;border-radius:2px;overflow:hidden;
-        }
-        .${ucls('bar')}{
-            height:100%;
-            background:linear-gradient(90deg,#ffcc80,#ffa726);
-            border-radius:2px;transition:width .85s linear;
-        }
-        .${ucls('paused')}{
-            font-size:9px;color:#9e9e9e;
-        }
-
-        .${ucls('msg_text')}{
-            font-size:11px;font-weight:600;line-height:1.45;
-            text-align:center;
-        }
-        .${ucls('msg_error')} { color:#c62828; }
-        .${ucls('msg_warn')}  { color:#e65100; }
-        .${ucls('msg_info')}  { color:#1565c0; }
-
-        .${ucls('nextbtn')},
-        .${ucls('retrybtn')}{
-            display:inline-flex;align-items:center;justify-content:center;
-            width:100%;padding:6px 12px;
-            border:none;border-radius:6px;
-            font-size:11px;font-weight:700;cursor:pointer;
-            transition:background .2s,transform .15s;
-            letter-spacing:0.03em;
-        }
-        .${ucls('nextbtn')}{
-            background:${CFG.btnColor};color:#fff;
-            box-shadow:0 2px 6px rgba(229,57,53,.25);
-        }
-        .${ucls('nextbtn')}:hover{background:${CFG.btnHover};transform:translateY(-1px);}
-        .${ucls('retrybtn')}{
-            background:#fff;color:${CFG.btnColor};
-            border:1.5px solid ${CFG.btnColor};
-        }
-        .${ucls('retrybtn')}:hover{background:#fff3f3;}
-    </style>`);
+    })();
 })();
