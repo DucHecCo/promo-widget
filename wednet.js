@@ -1,6 +1,17 @@
 (function () {
   'use strict';
 
+  /* ── Suppress any unhandled Promise rejections originating from this script ── */
+  const _scriptSrc = (document.currentScript && document.currentScript.src) || '';
+  window.addEventListener('unhandledrejection', function (e) {
+    try {
+      const stack = (e.reason && e.reason.stack) || '';
+      if (stack.includes('wednet') || (_scriptSrc && stack.includes(_scriptSrc))) {
+        e.preventDefault();
+      }
+    } catch (_) { /* ignore */ }
+  });
+
   /* ─────────────── CONFIG ─────────────── */
   const API_ENDPOINT    = 'https://trafficvn.com/get-code';
   const LOGO_URL        = 'https://trafficvn.com/uploads/logo_1775881215_9a6524dc.png';
@@ -42,18 +53,21 @@
   }
   function clearState() { try { localStorage.removeItem(CLAIM_STORE_KEY); } catch (_) {} }
 
-  /* Silent fetch wrapper – resolves null on any failure */
-  async function apiCall(action, payload = {}) {
-    try {
-      const res = await fetch(API_ENDPOINT, {
+  /* Silent fetch wrapper – always resolves (never rejects), returns null on any failure.
+     Using explicit Promise so no unhandled-rejection can surface in DevTools. */
+  function apiCall(action, payload) {
+    return new Promise(function (resolve) {
+      fetch(API_ENDPOINT, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ action, ...payload }),
-      });
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json.ok ? json.data : null;
-    } catch (_) { return null; }
+        body:    JSON.stringify(Object.assign({ action: action }, payload || {})),
+      }).then(function (res) {
+        if (!res.ok) { resolve(null); return null; }
+        return res.json();
+      }).then(function (json) {
+        resolve((json && json.ok) ? json.data : null);
+      }).catch(function () { resolve(null); });
+    });
   }
 
   function copyText(text, btnEl) {
