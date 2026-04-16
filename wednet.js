@@ -53,20 +53,57 @@
   }
   function clearState() { try { localStorage.removeItem(CLAIM_STORE_KEY); } catch (_) {} }
 
-  /* Silent fetch wrapper – always resolves (never rejects), returns null on any failure.
-     Using explicit Promise so no unhandled-rejection can surface in DevTools. */
+  /* ── Web Worker-based fetch ──────────────────────────────────────────────
+     Running fetch inside a Worker thread completely breaks the JS call stack
+     so DevTools cannot trace the request back to apiCall / boot / runSimpleFlow.
+     Falls back to inline fetch (with detached microtask) for environments
+     where Blob URLs or Workers are blocked by CSP.
+  ─────────────────────────────────────────────────────────────────────── */
+  var _workerCode = [
+    'self.onmessage=function(e){',
+    'fetch(e.data.u,{method:"POST",',
+    'headers:{"Content-Type":"application/json"},',
+    'body:JSON.stringify(e.data.b)})',
+    '.then(function(r){if(!r.ok){self.postMessage(null);return null;}return r.json();})',
+    '.then(function(j){self.postMessage((j&&j.ok)?j.data:null);})',
+    '.catch(function(){self.postMessage(null);});};',
+  ].join('');
+
   function apiCall(action, payload) {
+    var body = Object.assign({ action: action }, payload || {});
     return new Promise(function (resolve) {
-      fetch(API_ENDPOINT, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(Object.assign({ action: action }, payload || {})),
-      }).then(function (res) {
-        if (!res.ok) { resolve(null); return null; }
-        return res.json();
-      }).then(function (json) {
-        resolve((json && json.ok) ? json.data : null);
-      }).catch(function () { resolve(null); });
+      /* ── Try Worker path first ── */
+      try {
+        var blob   = new Blob([_workerCode], { type: 'text/javascript' });
+        var blobUrl = URL.createObjectURL(blob);
+        var w = new Worker(blobUrl);
+        var done = false;
+        w.onmessage = function (e) {
+          if (done) return; done = true;
+          try { URL.revokeObjectURL(blobUrl); w.terminate(); } catch (_) {}
+          resolve(e.data || null);
+        };
+        w.onerror = function () {
+          if (done) return; done = true;
+          try { URL.revokeObjectURL(blobUrl); w.terminate(); } catch (_) {}
+          resolve(null);
+        };
+        w.postMessage({ u: API_ENDPOINT, b: body });
+      } catch (_) {
+        /* ── Fallback: detached microtask (hides most of the call stack) ── */
+        Promise.resolve().then(function () {
+          return fetch(API_ENDPOINT, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(body),
+          });
+        }).then(function (r) {
+          if (!r.ok) { resolve(null); return null; }
+          return r.json();
+        }).then(function (j) {
+          resolve((j && j.ok) ? j.data : null);
+        }).catch(function () { resolve(null); });
+      }
     });
   }
 
