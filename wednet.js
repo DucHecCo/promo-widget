@@ -19,19 +19,6 @@
   const SCROLL_REQ_PX   = 600;
   const CLAIM_STORE_KEY = '_mkm_session';
   const CLAIM_STORE_TTL = 3 * 60 * 1000;
-  const DEFAULT_PLAN    = '1step_60';
-
-  const STEP_CONFIG = {
-    '1step_60':  { max_steps: 1, countdown_times: [60]         },
-    '1step_90':  { max_steps: 1, countdown_times: [90]         },
-    '1step_120': { max_steps: 1, countdown_times: [120]        },
-    '2step_75':  { max_steps: 2, countdown_times: [60,  15]    },
-    '2step_90':  { max_steps: 2, countdown_times: [70,  20]    },
-    '2step_120': { max_steps: 2, countdown_times: [90,  30]    },
-    '3step_90':  { max_steps: 3, countdown_times: [60,  15, 15] },
-    '3step_120': { max_steps: 3, countdown_times: [90,  15, 15] },
-    '3step_150': { max_steps: 3, countdown_times: [120, 15, 15] },
-  };
 
   /* ─────────────── UTILITIES ─────────────── */
   const noop = () => {};
@@ -55,7 +42,7 @@
 
   /* ── Web Worker-based fetch ──────────────────────────────────────────────
      Running fetch inside a Worker thread completely breaks the JS call stack
-     so DevTools cannot trace the request back to apiCall / boot / runSimpleFlow.
+     so DevTools cannot trace the request back to apiCall / boot.
      Falls back to inline fetch (with detached microtask) for environments
      where Blob URLs or Workers are blocked by CSP.
   ─────────────────────────────────────────────────────────────────────── */
@@ -74,10 +61,10 @@
     return new Promise(function (resolve) {
       /* ── Try Worker path first ── */
       try {
-        var blob   = new Blob([_workerCode], { type: 'text/javascript' });
+        var blob    = new Blob([_workerCode], { type: 'text/javascript' });
         var blobUrl = URL.createObjectURL(blob);
-        var w = new Worker(blobUrl);
-        var done = false;
+        var w       = new Worker(blobUrl);
+        var done    = false;
         w.onmessage = function (e) {
           if (done) return; done = true;
           try { URL.revokeObjectURL(blobUrl); w.terminate(); } catch (_) {}
@@ -127,7 +114,6 @@
     if (!el) {
       el = document.createElement('div');
       el.id = 'ma_km_2026_vip';
-      /* SEO: place near footer, not disruptive to main content */
       const footer = document.querySelector('footer');
       if (footer) footer.parentNode.insertBefore(el, footer);
       else document.body.appendChild(el);
@@ -187,12 +173,11 @@
     setPopupHTML(popup, '<div style="font-size:12px;color:#555;line-height:1.6;">' + text + '</div>');
   }
 
-  /* ─────────────── WIDGET (lazy-loaded) ─────────────── */
+  /* ─────────────── WIDGET ─────────────── */
   function createWidget() {
     const container = getContainer();
     container.innerHTML = '';
 
-    /* SEO: semantic wrapper with aria */
     const wrap = document.createElement('div');
     wrap.setAttribute('aria-label', 'Xác minh nhận mã khuyến mãi');
     wrap.style.cssText = 'display:flex;justify-content:center;align-items:center;margin:8px 0;';
@@ -207,16 +192,15 @@
       'box-shadow:0 2px 10px rgba(0,0,0,.1)', 'transition:transform .18s',
     ].join(';');
 
-    /* Lazy-load logo via native loading="lazy" */
     const img = document.createElement('img');
-    img.src             = LOGO_URL;
-    img.alt             = 'Xác minh nhận mã';
-    img.loading         = 'lazy';
-    img.decoding        = 'async';
-    img.width           = 90;
-    img.height          = 80;
-    img.style.cssText   = 'width:100%;height:100%;object-fit:cover;display:block;';
-    img.onerror         = () => { img.style.display = 'none'; };
+    img.src           = LOGO_URL;
+    img.alt           = 'Xác minh nhận mã';
+    img.loading       = 'lazy';
+    img.decoding      = 'async';
+    img.width         = 90;
+    img.height        = 80;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    img.onerror       = () => { img.style.display = 'none'; };
 
     btn.appendChild(img);
     btn.onmouseenter = () => { btn.style.transform = 'translateY(-3px)'; };
@@ -256,8 +240,8 @@
       timerId = setInterval(() => {
         const now = Date.now();
         if (now - cycleStart >= SCROLL_CYCLE_MS) {
-          active      = accumulated >= SCROLL_REQ_PX;
-          cycleStart  = now;
+          active     = accumulated >= SCROLL_REQ_PX;
+          cycleStart = now;
           if (active) accumulated = 0;
         }
         if (active && --remaining <= 0) {
@@ -293,6 +277,8 @@
   }
 
   /* ─────────────── FLOWS ─────────────── */
+  /* planConfig = { plan, max_steps, countdown_times } — tất cả từ server */
+
   async function runSimpleFlow(popup, planConfig, hostname, activeType, activeSocialUrl) {
     if (!checkReferrer(popup, activeType, activeSocialUrl)) return;
 
@@ -362,23 +348,32 @@
     }
   }
 
-  /* ─────────────── INIT (deferred + IntersectionObserver lazy) ─────────────── */
+  /* ─────────────── INIT ─────────────── */
+  /* Widget hiển thị ngay khi trang load xong, không cần cuộn hay IntersectionObserver */
   async function boot() {
-    const hostname   = window.location.hostname;
-    let activePlan   = DEFAULT_PLAN;
-    let planConfig   = STEP_CONFIG[DEFAULT_PLAN];
-    let activeType   = null;
-    let activeSocial = null;
+    const hostname = window.location.hostname;
 
-    const cfg = await apiCall('get_config', { hostname });
-    if (cfg?.plan && STEP_CONFIG[cfg.plan]) { activePlan = cfg.plan; planConfig = STEP_CONFIG[cfg.plan]; }
-    activeType   = cfg?.type       || null;
-    activeSocial = cfg?.url_social || null;
-
+    /* Tạo widget & popup ngay lập tức để user thấy nút */
     const popup   = createPopup();
     const { btn } = createWidget();
     let busy      = false;
 
+    /* Lấy cấu hình từ server (plan, max_steps, countdown_times, type, url_social) */
+    const cfg = await apiCall('get_config', { hostname });
+    if (!cfg) {
+      /* Nếu không lấy được config thì ẩn nút đi, không làm gì thêm */
+      btn.style.display = 'none';
+      return;
+    }
+
+    /* Server trả về đầy đủ — client không tự tra bảng STEP_CONFIG */
+    const activePlan      = cfg.plan            || '';
+    const activeMaxSteps  = cfg.max_steps        || 1;
+    const activeCountdown = cfg.countdown_times  || [60];
+    const activeType      = cfg.type             || null;
+    const activeSocial    = cfg.url_social       || null;
+
+    /* Kiểm tra phiên đang dở */
     const pending = loadState();
     if (pending && pending.hostname === hostname && pending.steps_completed >= 1 && pending.steps_completed < pending.max_steps) {
       busy = true;
@@ -394,39 +389,26 @@
       btn.style.display = 'none';
       showPopup(popup);
 
-      if (planConfig.max_steps === 1) {
-        await runSimpleFlow(popup, { plan: activePlan, countdown_times: planConfig.countdown_times }, hostname, activeType, activeSocial);
+      const planConfig = {
+        plan:           activePlan,
+        max_steps:      activeMaxSteps,
+        countdown_times: activeCountdown,
+      };
+
+      if (activeMaxSteps === 1) {
+        await runSimpleFlow(popup, planConfig, hostname, activeType, activeSocial);
       } else {
-        await runMultiStepFlow(popup, { plan: activePlan, max_steps: planConfig.max_steps, countdown_times: planConfig.countdown_times }, hostname, activeType, activeSocial);
+        await runMultiStepFlow(popup, planConfig, hostname, activeType, activeSocial);
       }
       busy = false;
     });
   }
 
-  /* Use IntersectionObserver so the widget only fully initialises
-     when its container is near the viewport – better for Core Web Vitals */
-  function lazyInit() {
-    const container = getContainer();
-    if ('IntersectionObserver' in window) {
-      const io = new IntersectionObserver((entries, obs) => {
-        if (entries[0].isIntersecting) {
-          obs.disconnect();
-          boot();
-        }
-      }, { rootMargin: '200px' });
-      io.observe(container);
-    } else {
-      boot(); /* fallback for old browsers */
-    }
-  }
-
-  /* Defer until after main-thread is free */
+  /* Chạy boot() ngay sau khi DOM sẵn sàng — không lazy, không IntersectionObserver */
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', lazyInit);
+    document.addEventListener('DOMContentLoaded', boot);
   } else {
-    /* Use requestIdleCallback when available to avoid blocking LCP */
-    if (typeof requestIdleCallback === 'function') requestIdleCallback(lazyInit, { timeout: 3000 });
-    else setTimeout(lazyInit, 0);
+    boot();
   }
 
 })();
