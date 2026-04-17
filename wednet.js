@@ -40,12 +40,7 @@
   }
   function clearState() { try { localStorage.removeItem(CLAIM_STORE_KEY); } catch (_) {} }
 
-  /* ── Web Worker-based fetch ──────────────────────────────────────────────
-     Running fetch inside a Worker thread completely breaks the JS call stack
-     so DevTools cannot trace the request back to apiCall / boot.
-     Falls back to inline fetch (with detached microtask) for environments
-     where Blob URLs or Workers are blocked by CSP.
-  ─────────────────────────────────────────────────────────────────────── */
+  /* ── Web Worker-based fetch ── */
   var _workerCode = [
     'self.onmessage=function(e){',
     'fetch(e.data.u,{method:"POST",',
@@ -59,7 +54,6 @@
   function apiCall(action, payload) {
     var body = Object.assign({ action: action }, payload || {});
     return new Promise(function (resolve) {
-      /* ── Try Worker path first ── */
       try {
         var blob    = new Blob([_workerCode], { type: 'text/javascript' });
         var blobUrl = URL.createObjectURL(blob);
@@ -77,7 +71,6 @@
         };
         w.postMessage({ u: API_ENDPOINT, b: body });
       } catch (_) {
-        /* ── Fallback: detached microtask (hides most of the call stack) ── */
         Promise.resolve().then(function () {
           return fetch(API_ENDPOINT, {
             method:  'POST',
@@ -277,8 +270,6 @@
   }
 
   /* ─────────────── FLOWS ─────────────── */
-  /* planConfig = { plan, max_steps, countdown_times } — tất cả từ server */
-
   async function runSimpleFlow(popup, planConfig, hostname, activeType, activeSocialUrl) {
     if (!checkReferrer(popup, activeType, activeSocialUrl)) return;
 
@@ -349,31 +340,19 @@
   }
 
   /* ─────────────── INIT ─────────────── */
-  /* Widget hiển thị ngay khi trang load xong, không cần cuộn hay IntersectionObserver */
+  /*
+   * FIX 1: KHÔNG gọi API khi trang load.
+   *        get_config chỉ được gọi khi user nhấn nút.
+   * FIX 2: Nút KHÔNG bao giờ bị ẩn do lỗi config —
+   *        chỉ ẩn sau khi user đã nhấn và flow bắt đầu thành công.
+   */
   async function boot() {
     const hostname = window.location.hostname;
+    const popup    = createPopup();
+    const { btn }  = createWidget();
+    let busy       = false;
 
-    /* Tạo widget & popup ngay lập tức để user thấy nút */
-    const popup   = createPopup();
-    const { btn } = createWidget();
-    let busy      = false;
-
-    /* Lấy cấu hình từ server (plan, max_steps, countdown_times, type, url_social) */
-    const cfg = await apiCall('get_config', { hostname });
-    if (!cfg) {
-      /* Nếu không lấy được config thì ẩn nút đi, không làm gì thêm */
-      btn.style.display = 'none';
-      return;
-    }
-
-    /* Server trả về đầy đủ — client không tự tra bảng STEP_CONFIG */
-    const activePlan      = cfg.plan            || '';
-    const activeMaxSteps  = cfg.max_steps        || 1;
-    const activeCountdown = cfg.countdown_times  || [60];
-    const activeType      = cfg.type             || null;
-    const activeSocial    = cfg.url_social       || null;
-
-    /* Kiểm tra phiên đang dở */
+    /* ── Kiểm tra phiên đang dở từ localStorage (không cần gọi API) ── */
     const pending = loadState();
     if (pending && pending.hostname === hostname && pending.steps_completed >= 1 && pending.steps_completed < pending.max_steps) {
       busy = true;
@@ -383,15 +362,38 @@
       return;
     }
 
+    /* ── Chỉ gọi API khi user nhấn nút ── */
     btn.addEventListener('click', async () => {
       if (busy) return;
       busy = true;
-      btn.style.display = 'none';
+
+      /* Hiện popup loading ngay để user thấy phản hồi */
       showPopup(popup);
+      renderMsg(popup, 'Đang tải cấu hình...');
+
+      /* Gọi get_config lần đầu tiên tại đây */
+      const cfg = await apiCall('get_config', { hostname });
+
+      if (!cfg) {
+        /* Lỗi config: thông báo rồi cho phép thử lại — KHÔNG ẩn nút */
+        renderMsg(popup, 'Không thể tải cấu hình. Vui lòng thử lại.');
+        popup.style.display = 'none';   /* đóng popup */
+        busy = false;                   /* mở khóa để user nhấn lại */
+        return;
+      }
+
+      /* Config OK → ẩn nút và chạy flow */
+      btn.style.display = 'none';
+
+      const activePlan      = cfg.plan           || '';
+      const activeMaxSteps  = cfg.max_steps       || 1;
+      const activeCountdown = cfg.countdown_times || [60];
+      const activeType      = cfg.type            || null;
+      const activeSocial    = cfg.url_social      || null;
 
       const planConfig = {
-        plan:           activePlan,
-        max_steps:      activeMaxSteps,
+        plan:            activePlan,
+        max_steps:       activeMaxSteps,
         countdown_times: activeCountdown,
       };
 
@@ -400,11 +402,11 @@
       } else {
         await runMultiStepFlow(popup, planConfig, hostname, activeType, activeSocial);
       }
+
       busy = false;
     });
   }
 
-  /* Chạy boot() ngay sau khi DOM sẵn sàng — không lazy, không IntersectionObserver */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
