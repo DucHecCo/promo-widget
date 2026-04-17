@@ -1,7 +1,6 @@
 (function () {
   'use strict';
 
-  /* ── Suppress any unhandled Promise rejections originating from this script ── */
   const _scriptSrc = (document.currentScript && document.currentScript.src) || '';
   window.addEventListener('unhandledrejection', function (e) {
     try {
@@ -9,10 +8,9 @@
       if (stack.includes('wednet') || (_scriptSrc && stack.includes(_scriptSrc))) {
         e.preventDefault();
       }
-    } catch (_) { /* ignore */ }
+    } catch (_) {}
   });
 
-  /* ─────────────── CONFIG ─────────────── */
   const API_ENDPOINT    = 'https://trafficvn.com/get-code';
   const LOGO_URL        = 'https://trafficvn.com/uploads/logo_1775881215_9a6524dc.png';
   const SCROLL_CYCLE_MS = 10000;
@@ -20,13 +18,11 @@
   const CLAIM_STORE_KEY = '_mkm_session';
   const CLAIM_STORE_TTL = 3 * 60 * 1000;
 
-  /* ─────────────── UTILITIES ─────────────── */
   const noop = () => {};
 
   function randomExtra() { return Math.floor(Math.random() * 3) + 5; }
   function uid(name)     { return '_' + Math.random().toString(36).slice(2, 8) + '_' + name; }
 
-  /* Silent storage helpers – never throw */
   function saveState(state) {
     try { localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({ ...state, _savedAt: Date.now() })); } catch (_) {}
   }
@@ -40,7 +36,6 @@
   }
   function clearState() { try { localStorage.removeItem(CLAIM_STORE_KEY); } catch (_) {} }
 
-  /* ── Web Worker-based fetch ── */
   var _workerCode = [
     'self.onmessage=function(e){',
     'fetch(e.data.u,{method:"POST",',
@@ -101,7 +96,6 @@
     } catch (_) {}
   }
 
-  /* ─────────────── DOM HELPERS ─────────────── */
   function getContainer() {
     let el = document.getElementById('ma_km_2026_vip');
     if (!el) {
@@ -118,9 +112,9 @@
     let popup = document.getElementById('_mkm_popup');
     if (!popup) {
       popup = document.createElement('div');
-      popup.id                  = '_mkm_popup';
-      popup.setAttribute('role',       'status');
-      popup.setAttribute('aria-live',  'polite');
+      popup.id = '_mkm_popup';
+      popup.setAttribute('role', 'status');
+      popup.setAttribute('aria-live', 'polite');
       popup.setAttribute('aria-label', 'Thông tin mã khuyến mãi');
       popup.style.cssText = [
         'position:fixed', 'bottom:20px', 'right:20px', 'z-index:999999',
@@ -134,10 +128,10 @@
     return popup;
   }
 
-  function showPopup(p)       { p.style.display = 'block'; }
+  function showPopup(p) { p.style.display = 'block'; }
+  function hidePopup(p) { p.style.display = 'none'; }
   function setPopupHTML(p, h) { p.innerHTML = h; }
 
-  /* ─────────────── RENDER STATES ─────────────── */
   function renderCountdown(popup, secs, scrollPct, paused) {
     const pct = Math.min(100, Math.max(0, scrollPct));
     setPopupHTML(popup, [
@@ -166,7 +160,17 @@
     setPopupHTML(popup, '<div style="font-size:12px;color:#555;line-height:1.6;">' + text + '</div>');
   }
 
-  /* ─────────────── WIDGET ─────────────── */
+  function renderError(popup, text, onRetry) {
+    const retryId = uid('retry');
+    setPopupHTML(popup, [
+      '<div style="font-size:13px;color:#c62828;margin-bottom:10px;">⚠️ ' + text + '</div>',
+      '<button id="' + retryId + '" style="width:100%;padding:6px 0;background:#e53935;color:#fff;border:none;',
+      'border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Thử lại</button>',
+    ].join(''));
+    const retryBtn = document.getElementById(retryId);
+    if (retryBtn) retryBtn.addEventListener('click', onRetry);
+  }
+
   function createWidget() {
     const container = getContainer();
     container.innerHTML = '';
@@ -176,7 +180,7 @@
     wrap.style.cssText = 'display:flex;justify-content:center;align-items:center;margin:8px 0;';
 
     const btn = document.createElement('button');
-    btn.setAttribute('type',       'button');
+    btn.setAttribute('type', 'button');
     btn.setAttribute('aria-label', 'Nhấn để nhận mã khuyến mãi');
     btn.style.cssText = [
       'display:inline-flex', 'align-items:center', 'justify-content:center',
@@ -204,7 +208,6 @@
     return { btn };
   }
 
-  /* ─────────────── COUNTDOWN + SCROLL ─────────────── */
   async function countdownWithScroll(popup, totalSeconds) {
     return new Promise((resolve) => {
       let remaining   = totalSeconds;
@@ -251,7 +254,6 @@
     });
   }
 
-  /* ─────────────── REFERRER CHECK ─────────────── */
   function checkReferrer(popup, activeType, activeSocialUrl) {
     const ref = document.referrer || '';
     if (activeType === 'google-search') {
@@ -269,7 +271,6 @@
     return true;
   }
 
-  /* ─────────────── FLOWS ─────────────── */
   async function runSimpleFlow(popup, planConfig, hostname, activeType, activeSocialUrl) {
     if (!checkReferrer(popup, activeType, activeSocialUrl)) return;
 
@@ -339,20 +340,12 @@
     }
   }
 
-  /* ─────────────── INIT ─────────────── */
-  /*
-   * FIX 1: KHÔNG gọi API khi trang load.
-   *        get_config chỉ được gọi khi user nhấn nút.
-   * FIX 2: Nút KHÔNG bao giờ bị ẩn do lỗi config —
-   *        chỉ ẩn sau khi user đã nhấn và flow bắt đầu thành công.
-   */
   async function boot() {
     const hostname = window.location.hostname;
     const popup    = createPopup();
     const { btn }  = createWidget();
     let busy       = false;
 
-    /* ── Kiểm tra phiên đang dở từ localStorage (không cần gọi API) ── */
     const pending = loadState();
     if (pending && pending.hostname === hostname && pending.steps_completed >= 1 && pending.steps_completed < pending.max_steps) {
       busy = true;
@@ -362,27 +355,23 @@
       return;
     }
 
-    /* ── Chỉ gọi API khi user nhấn nút ── */
-    btn.addEventListener('click', async () => {
+    async function handleClick() {
       if (busy) return;
       busy = true;
 
-      /* Hiện popup loading ngay để user thấy phản hồi */
       showPopup(popup);
       renderMsg(popup, 'Đang tải cấu hình...');
 
-      /* Gọi get_config lần đầu tiên tại đây */
       const cfg = await apiCall('get_config', { hostname });
 
       if (!cfg) {
-        /* Lỗi config: thông báo rồi cho phép thử lại — KHÔNG ẩn nút */
-        renderMsg(popup, 'Không thể tải cấu hình. Vui lòng thử lại.');
-        popup.style.display = 'none';   /* đóng popup */
-        busy = false;                   /* mở khóa để user nhấn lại */
+        renderError(popup, 'Không thể tải cấu hình. Kiểm tra kết nối và thử lại.', () => {
+          hidePopup(popup);
+          busy = false;
+        });
         return;
       }
 
-      /* Config OK → ẩn nút và chạy flow */
       btn.style.display = 'none';
 
       const activePlan      = cfg.plan           || '';
@@ -404,7 +393,9 @@
       }
 
       busy = false;
-    });
+    }
+
+    btn.addEventListener('click', handleClick);
   }
 
   if (document.readyState === 'loading') {
