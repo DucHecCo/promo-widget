@@ -82,133 +82,321 @@
     });
   }
 
+  // ─── Shadow DOM helpers ──────────────────────────────────────────────────────
+
+  /** Tạo hoặc lấy host element + shadow root để cô lập hoàn toàn khỏi CSS trang */
+  function getOrCreateShadowHost(id) {
+    let host = document.getElementById(id);
+    if (!host) {
+      host = document.createElement('div');
+      host.id = id;
+      // Reset toàn bộ style kế thừa từ trang ngoài
+      host.setAttribute('style', [
+        'all:initial',
+        'display:block',
+        'width:100%',
+        'box-sizing:border-box',
+      ].join('!important;') + '!important');
+      const footer = document.querySelector('footer');
+      if (footer) footer.parentNode.insertBefore(host, footer);
+      else document.body.appendChild(host);
+    }
+    if (!host._shadow) {
+      host._shadow = host.attachShadow({ mode: 'open' });
+      // Inject base CSS vào shadow root — hoàn toàn độc lập với trang ngoài
+      const style = document.createElement('style');
+      style.textContent = `
+        *, *::before, *::after {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+        :host {
+          all: initial;
+          display: block;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .wrap {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin: 8px 0;
+        }
+        .btn {
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 90px !important;
+          height: 80px !important;
+          border: 1px solid #e0e0e0 !important;
+          background: #fff !important;
+          border-radius: 16px !important;
+          cursor: pointer !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+          box-shadow: 0 2px 10px rgba(0,0,0,.1) !important;
+          transition: transform .18s !important;
+          outline: none !important;
+          -webkit-appearance: none !important;
+          appearance: none !important;
+        }
+        .btn:hover { transform: translateY(-3px) !important; }
+        .btn:active { transform: translateY(0) !important; }
+        .btn img {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          display: block !important;
+          pointer-events: none !important;
+        }
+      `;
+      host._shadow.appendChild(style);
+    }
+    return host._shadow;
+  }
+
+  /** Tạo popup cố định góc phải — cũng dùng Shadow DOM riêng */
+  function createPopup() {
+    let host = document.getElementById('_mkm_popup_host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = '_mkm_popup_host';
+      host.setAttribute('style', [
+        'all:initial',
+        'position:fixed',
+        'bottom:20px',
+        'right:20px',
+        'z-index:2147483647',
+        'display:none',
+      ].join('!important;') + '!important');
+      document.body.appendChild(host);
+    }
+    if (!host._shadow) {
+      host._shadow = host.attachShadow({ mode: 'open' });
+      const style = document.createElement('style');
+      style.textContent = `
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :host { all: initial; display: block; }
+        .popup {
+          background: #fff;
+          border: 1px solid #e0e0e0;
+          border-radius: 16px;
+          box-shadow: 0 4px 24px rgba(0,0,0,.12);
+          padding: 18px 20px;
+          min-width: 200px;
+          max-width: 260px;
+          text-align: center;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-size: 14px;
+          color: #333;
+          line-height: 1.5;
+        }
+        .countdown-label {
+          font-size: 11px;
+          color: #999;
+          margin-bottom: 6px;
+        }
+        .countdown-num {
+          font-size: 36px;
+          font-weight: 700;
+          color: #e53935;
+          line-height: 1;
+        }
+        .progress-bar-wrap {
+          margin: 10px 0 4px;
+          background: #eee;
+          border-radius: 6px;
+          height: 4px;
+          overflow: hidden;
+        }
+        .progress-bar-fill {
+          height: 100%;
+          background: #ffa726;
+          transition: width .3s;
+        }
+        .paused-label {
+          font-size: 11px;
+          color: #bbb;
+          margin-top: 4px;
+        }
+        .code-label {
+          font-size: 11px;
+          color: #558b2f;
+          font-weight: 600;
+          margin-bottom: 6px;
+        }
+        .code-box {
+          padding: 6px 14px;
+          background: #f1f8e9;
+          border: 1.5px dashed #aed581;
+          border-radius: 8px;
+          font-size: 20px;
+          font-weight: 800;
+          letter-spacing: 3px;
+          color: #33691e;
+          font-family: monospace, monospace;
+          margin-bottom: 10px;
+          word-break: break-all;
+        }
+        .copy-btn {
+          width: 100%;
+          padding: 6px 0;
+          background: #558b2f;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          -webkit-appearance: none;
+          appearance: none;
+          outline: none;
+        }
+        .copy-btn:hover { background: #4a7a28; }
+        .msg-text {
+          font-size: 12px;
+          color: #555;
+          line-height: 1.6;
+        }
+        .error-text {
+          font-size: 13px;
+          color: #c62828;
+          margin-bottom: 10px;
+        }
+        .retry-btn {
+          width: 100%;
+          padding: 6px 0;
+          background: #e53935;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          -webkit-appearance: none;
+          appearance: none;
+          outline: none;
+        }
+        .retry-btn:hover { background: #c62828; }
+      `;
+      host._shadow.appendChild(style);
+      const popupEl = document.createElement('div');
+      popupEl.className = 'popup';
+      popupEl.setAttribute('role', 'status');
+      popupEl.setAttribute('aria-live', 'polite');
+      popupEl.setAttribute('aria-label', 'Thông tin mã khuyến mãi');
+      host._shadow.appendChild(popupEl);
+    }
+    return host;
+  }
+
+  function showPopup(host) { host.style.setProperty('display', 'block', 'important'); }
+  function hidePopup(host) { host.style.setProperty('display', 'none', 'important'); }
+
+  function getPopupEl(host) {
+    return host._shadow.querySelector('.popup');
+  }
+
   function copyText(text, btnEl) {
     const done = () => {
       btnEl.textContent = 'Đã sao chép!';
       setTimeout(() => { btnEl.textContent = 'Sao chép mã'; }, 2500);
     };
     try {
-      if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(text).then(done).catch(noop); return; }
-      const ta = Object.assign(document.createElement('textarea'), { value: text, style: 'position:fixed;opacity:0' });
-      document.body.appendChild(ta); ta.select();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(noop);
+        return;
+      }
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
       try { document.execCommand('copy'); done(); } catch (_) {}
       document.body.removeChild(ta);
     } catch (_) {}
   }
 
-  function getContainer() {
-    let el = document.getElementById('ma_km_2026_vip');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'ma_km_2026_vip';
-      const footer = document.querySelector('footer');
-      if (footer) footer.parentNode.insertBefore(el, footer);
-      else document.body.appendChild(el);
-    }
-    return el;
-  }
+  // ─── Render helpers (viết thẳng vào shadow DOM) ─────────────────────────────
 
-  function createPopup() {
-    let popup = document.getElementById('_mkm_popup');
-    if (!popup) {
-      popup = document.createElement('div');
-      popup.id = '_mkm_popup';
-      popup.setAttribute('role', 'status');
-      popup.setAttribute('aria-live', 'polite');
-      popup.setAttribute('aria-label', 'Thông tin mã khuyến mãi');
-      popup.style.cssText = [
-        'position:fixed', 'bottom:20px', 'right:20px', 'z-index:999999',
-        'background:#fff', 'border:1px solid #e0e0e0', 'border-radius:16px',
-        'box-shadow:0 4px 24px rgba(0,0,0,.12)', 'padding:18px 20px',
-        'min-width:200px', 'max-width:260px', 'text-align:center',
-        'display:none', 'font-family:sans-serif',
-      ].join(';');
-      document.body.appendChild(popup);
-    }
-    return popup;
-  }
-
-  function showPopup(p) { p.style.display = 'block'; }
-  function hidePopup(p) { p.style.display = 'none'; }
-  function setPopupHTML(p, h) { p.innerHTML = h; }
-
-  function renderCountdown(popup, secs, scrollPct, paused) {
+  function renderCountdown(popupHost, secs, scrollPct, paused) {
+    const p = getPopupEl(popupHost);
     const pct = Math.min(100, Math.max(0, scrollPct));
-    setPopupHTML(popup, [
-      '<div style="font-size:11px;color:#999;margin-bottom:6px;">Vui lòng cuộn trang</div>',
-      '<div style="font-size:36px;font-weight:700;color:#e53935;line-height:1;" aria-live="assertive">' + secs + 's</div>',
-      '<div style="margin:10px 0 4px;background:#eee;border-radius:6px;height:4px;overflow:hidden;" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100">',
-      '<div style="width:' + pct + '%;height:100%;background:#ffa726;transition:width .3s;"></div></div>',
-      paused ? '<div style="font-size:11px;color:#bbb;margin-top:4px;">Hãy cuộn để tiếp tục</div>' : '',
-    ].join(''));
+    p.innerHTML = `
+      <div class="countdown-label">Vui lòng cuộn trang</div>
+      <div class="countdown-num" aria-live="assertive">${secs}s</div>
+      <div class="progress-bar-wrap" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar-fill" style="width:${pct}%"></div>
+      </div>
+      ${paused ? '<div class="paused-label">Hãy cuộn để tiếp tục</div>' : ''}
+    `;
   }
 
-  function renderCode(popup, code) {
-    const copyId = uid('copy');
-    setPopupHTML(popup, [
-      '<div style="font-size:11px;color:#558b2f;font-weight:600;margin-bottom:6px;">Mã của bạn</div>',
-      '<div style="padding:6px 14px;background:#f1f8e9;border:1.5px dashed #aed581;border-radius:8px;',
-      'font-size:20px;font-weight:800;letter-spacing:3px;color:#33691e;font-family:monospace;margin-bottom:10px;">' + code + '</div>',
-      '<button id="' + copyId + '" style="width:100%;padding:6px 0;background:#558b2f;color:#fff;border:none;',
-      'border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;" aria-label="Sao chép mã khuyến mãi">Sao chép mã</button>',
-    ].join(''));
-    const btn = document.getElementById(copyId);
+  function renderCode(popupHost, code) {
+    const p = getPopupEl(popupHost);
+    p.innerHTML = `
+      <div class="code-label">Mã của bạn</div>
+      <div class="code-box">${code}</div>
+      <button class="copy-btn" aria-label="Sao chép mã khuyến mãi">Sao chép mã</button>
+    `;
+    const btn = p.querySelector('.copy-btn');
     if (btn) btn.addEventListener('click', () => copyText(code, btn));
   }
 
-  function renderMsg(popup, text) {
-    setPopupHTML(popup, '<div style="font-size:12px;color:#555;line-height:1.6;">' + text + '</div>');
+  function renderMsg(popupHost, text) {
+    const p = getPopupEl(popupHost);
+    p.innerHTML = `<div class="msg-text">${text}</div>`;
   }
 
-  function renderError(popup, text, onRetry) {
-    const retryId = uid('retry');
-    setPopupHTML(popup, [
-      '<div style="font-size:13px;color:#c62828;margin-bottom:10px;">⚠️ ' + text + '</div>',
-      '<button id="' + retryId + '" style="width:100%;padding:6px 0;background:#e53935;color:#fff;border:none;',
-      'border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Thử lại</button>',
-    ].join(''));
-    const retryBtn = document.getElementById(retryId);
-    if (retryBtn) retryBtn.addEventListener('click', onRetry);
+  function renderError(popupHost, text, onRetry) {
+    const p = getPopupEl(popupHost);
+    p.innerHTML = `
+      <div class="error-text">⚠️ ${text}</div>
+      <button class="retry-btn">Thử lại</button>
+    `;
+    const btn = p.querySelector('.retry-btn');
+    if (btn) btn.addEventListener('click', onRetry);
   }
+
+  // ─── Widget button (trong shadow DOM) ────────────────────────────────────────
 
   function createWidget() {
-    const container = getContainer();
-    container.innerHTML = '';
+    const shadow = getOrCreateShadowHost('ma_km_2026_vip');
+
+    // Xoá nội dung cũ (nếu có) nhưng giữ lại <style>
+    Array.from(shadow.children).forEach(el => {
+      if (el.tagName !== 'STYLE') el.remove();
+    });
 
     const wrap = document.createElement('div');
+    wrap.className = 'wrap';
     wrap.setAttribute('aria-label', 'Xác minh nhận mã khuyến mãi');
-    wrap.style.cssText = 'display:flex;justify-content:center;align-items:center;margin:8px 0;';
 
     const btn = document.createElement('button');
-    btn.setAttribute('type', 'button');
+    btn.type = 'button';
+    btn.className = 'btn';
     btn.setAttribute('aria-label', 'Nhấn để nhận mã khuyến mãi');
-    btn.style.cssText = [
-      'display:inline-flex', 'align-items:center', 'justify-content:center',
-      'width:90px', 'height:80px', 'border:1px solid #e0e0e0', 'background:#fff',
-      'border-radius:16px', 'cursor:pointer', 'padding:0', 'overflow:hidden',
-      'box-shadow:0 2px 10px rgba(0,0,0,.1)', 'transition:transform .18s',
-    ].join(';');
 
     const img = document.createElement('img');
-    img.src           = LOGO_URL;
-    img.alt           = 'Xác minh nhận mã';
-    img.loading       = 'lazy';
-    img.decoding      = 'async';
-    img.width         = 90;
-    img.height        = 80;
-    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
-    img.onerror       = () => { img.style.display = 'none'; };
+    img.src     = LOGO_URL;
+    img.alt     = 'Xác minh nhận mã';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.width   = 90;
+    img.height  = 80;
+    img.onerror = () => { img.style.display = 'none'; };
 
     btn.appendChild(img);
-    btn.onmouseenter = () => { btn.style.transform = 'translateY(-3px)'; };
-    btn.onmouseleave = () => { btn.style.transform = 'translateY(0)'; };
-
     wrap.appendChild(btn);
-    container.appendChild(wrap);
+    shadow.appendChild(wrap);
+
     return { btn };
   }
 
-  async function countdownWithScroll(popup, totalSeconds) {
+  // ─── Countdown + scroll ───────────────────────────────────────────────────────
+
+  async function countdownWithScroll(popupHost, totalSeconds) {
     return new Promise((resolve) => {
       let remaining   = totalSeconds;
       let active      = true;
@@ -218,7 +406,7 @@
       let timerId     = null;
 
       function updateUI() {
-        renderCountdown(popup, remaining, Math.round((accumulated / SCROLL_REQ_PX) * 100), !active);
+        renderCountdown(popupHost, remaining, Math.round((accumulated / SCROLL_REQ_PX) * 100), !active);
       }
 
       function onScroll() {
@@ -254,51 +442,61 @@
     });
   }
 
-  function checkReferrer(popup, activeType, activeSocialUrl) {
+  // ─── Referrer check ──────────────────────────────────────────────────────────
+
+  function checkReferrer(popupHost, activeType, activeSocialUrl) {
     const ref = document.referrer || '';
     if (activeType === 'google-search') {
       if (!ref.includes('google.com') && !ref.includes('google.com.vn')) {
-        renderMsg(popup, 'Vui lòng tìm kiếm qua Google trước khi nhấn nút.');
+        renderMsg(popupHost, 'Vui lòng tìm kiếm qua Google trước khi nhấn nút.');
         return false;
       }
     } else if (activeType === 'social' && activeSocialUrl) {
       try {
         const socHost = new URL(activeSocialUrl).hostname.replace(/^www\./, '');
         const refHost = new URL(ref).hostname.replace(/^www\./, '');
-        if (refHost !== socHost) { renderMsg(popup, 'Vui lòng truy cập từ ' + socHost + ' để nhận mã.'); return false; }
-      } catch (_) { renderMsg(popup, 'Nguồn truy cập không hợp lệ.'); return false; }
+        if (refHost !== socHost) {
+          renderMsg(popupHost, 'Vui lòng truy cập từ ' + socHost + ' để nhận mã.');
+          return false;
+        }
+      } catch (_) {
+        renderMsg(popupHost, 'Nguồn truy cập không hợp lệ.');
+        return false;
+      }
     }
     return true;
   }
 
-  async function runSimpleFlow(popup, planConfig, hostname, activeType, activeSocialUrl) {
-    if (!checkReferrer(popup, activeType, activeSocialUrl)) return;
+  // ─── Flow logic ───────────────────────────────────────────────────────────────
+
+  async function runSimpleFlow(popupHost, planConfig, hostname, activeType, activeSocialUrl) {
+    if (!checkReferrer(popupHost, activeType, activeSocialUrl)) return;
 
     const result = await apiCall('create', {
       data: { hostname, domain: window.location.origin, plan: planConfig.plan, max_steps: 1, referrer: document.referrer || '' },
     });
-    if (!result) { renderMsg(popup, 'Không thể tạo phiên. Vui lòng thử lại.'); return; }
+    if (!result) { renderMsg(popupHost, 'Không thể tạo phiên. Vui lòng thử lại.'); return; }
 
     const step1Time = planConfig.countdown_times[0] + randomExtra();
-    await countdownWithScroll(popup, step1Time);
+    await countdownWithScroll(popupHost, step1Time);
 
     const finalData = await apiCall('finalize', { docId: result.docId, steps_completed: 1, duration_sec: step1Time });
     clearState();
-    if (finalData?.code) renderCode(popup, finalData.code);
-    else renderMsg(popup, 'Lỗi khi lấy mã. Vui lòng thử lại.');
+    if (finalData && finalData.code) renderCode(popupHost, finalData.code);
+    else renderMsg(popupHost, 'Lỗi khi lấy mã. Vui lòng thử lại.');
   }
 
-  async function runMultiStepFlow(popup, planConfig, hostname, activeType, activeSocialUrl) {
-    if (!checkReferrer(popup, activeType, activeSocialUrl)) return;
+  async function runMultiStepFlow(popupHost, planConfig, hostname, activeType, activeSocialUrl) {
+    if (!checkReferrer(popupHost, activeType, activeSocialUrl)) return;
 
     const paddedTimes = planConfig.countdown_times.map(t => t + randomExtra());
 
     const result = await apiCall('create', {
       data: { hostname, domain: window.location.origin, plan: planConfig.plan, max_steps: planConfig.max_steps, referrer: document.referrer || '' },
     });
-    if (!result) { renderMsg(popup, 'Không thể tạo phiên. Vui lòng thử lại.'); return; }
+    if (!result) { renderMsg(popupHost, 'Không thể tạo phiên. Vui lòng thử lại.'); return; }
 
-    await countdownWithScroll(popup, paddedTimes[0]);
+    await countdownWithScroll(popupHost, paddedTimes[0]);
     await apiCall('update_step', { docId: result.docId, steps_completed: 1 });
 
     saveState({
@@ -306,13 +504,13 @@
       countdown_times: paddedTimes, steps_completed: 1,
       hostname, origin_path: location.pathname, page_visited: false,
     });
-    renderMsg(popup, 'Bước 1 hoàn thành! Hãy nhấp vào một liên kết bất kỳ trên trang để tiếp tục.');
+    renderMsg(popupHost, 'Bước 1 hoàn thành! Hãy nhấp vào một liên kết bất kỳ trên trang để tiếp tục.');
   }
 
-  async function resumeMultiStep(state, popup) {
+  async function resumeMultiStep(state, popupHost) {
     if (location.pathname !== state.origin_path || state.page_visited) {
       for (let i = state.steps_completed; i < state.max_steps; i++) {
-        await countdownWithScroll(popup, state.countdown_times[i]);
+        await countdownWithScroll(popupHost, state.countdown_times[i]);
         await apiCall('update_step', { docId: state.docId, steps_completed: i + 1 });
       }
       const finalData = await apiCall('finalize', {
@@ -321,10 +519,10 @@
         duration_sec:    state.countdown_times.reduce((a, b) => a + b, 0),
       });
       clearState();
-      if (finalData?.code) renderCode(popup, finalData.code);
-      else renderMsg(popup, 'Lỗi khi lấy mã. Vui lòng thử lại.');
+      if (finalData && finalData.code) renderCode(popupHost, finalData.code);
+      else renderMsg(popupHost, 'Lỗi khi lấy mã. Vui lòng thử lại.');
     } else {
-      renderMsg(popup, 'Hãy nhấp vào một liên kết khác trên trang để tiếp tục.');
+      renderMsg(popupHost, 'Hãy nhấp vào một liên kết khác trên trang để tiếp tục.');
       const markVisited = () => {
         const fresh = loadState();
         if (fresh && !fresh.page_visited) saveState({ ...fresh, page_visited: true });
@@ -334,24 +532,29 @@
         if (location.pathname !== state.origin_path) {
           clearInterval(timer);
           window.removeEventListener('beforeunload', markVisited);
-          resumeMultiStep(state, popup);
+          resumeMultiStep(state, popupHost);
         }
       }, 500);
     }
   }
 
+  // ─── Boot ─────────────────────────────────────────────────────────────────────
+
   async function boot() {
-    const hostname = window.location.hostname;
-    const popup    = createPopup();
-    const { btn }  = createWidget();
-    let busy       = false;
+    const hostname  = window.location.hostname;
+    const popupHost = createPopup();
+    const { btn }   = createWidget();
+    let busy        = false;
 
     const pending = loadState();
     if (pending && pending.hostname === hostname && pending.steps_completed >= 1 && pending.steps_completed < pending.max_steps) {
       busy = true;
-      btn.style.display = 'none';
-      showPopup(popup);
-      resumeMultiStep(pending, popup);
+      // Ẩn button trong shadow DOM
+      const shadow = document.getElementById('ma_km_2026_vip')._shadow;
+      const btnEl  = shadow.querySelector('.btn');
+      if (btnEl) btnEl.style.display = 'none';
+      showPopup(popupHost);
+      resumeMultiStep(pending, popupHost);
       return;
     }
 
@@ -359,19 +562,20 @@
       if (busy) return;
       busy = true;
 
-      showPopup(popup);
-      renderMsg(popup, 'Đang tải cấu hình...');
+      showPopup(popupHost);
+      renderMsg(popupHost, 'Đang tải cấu hình...');
 
       const cfg = await apiCall('get_config', { hostname });
 
       if (!cfg) {
-        renderError(popup, 'Không thể tải cấu hình. Kiểm tra kết nối và thử lại.', () => {
-          hidePopup(popup);
+        renderError(popupHost, 'Không thể tải cấu hình. Kiểm tra kết nối và thử lại.', () => {
+          hidePopup(popupHost);
           busy = false;
         });
         return;
       }
 
+      // Ẩn button trong shadow DOM
       btn.style.display = 'none';
 
       const activePlan      = cfg.plan           || '';
@@ -387,9 +591,9 @@
       };
 
       if (activeMaxSteps === 1) {
-        await runSimpleFlow(popup, planConfig, hostname, activeType, activeSocial);
+        await runSimpleFlow(popupHost, planConfig, hostname, activeType, activeSocial);
       } else {
-        await runMultiStepFlow(popup, planConfig, hostname, activeType, activeSocial);
+        await runMultiStepFlow(popupHost, planConfig, hostname, activeType, activeSocial);
       }
 
       busy = false;
