@@ -21,7 +21,6 @@
   const noop = () => {};
 
   function randomExtra() { return Math.floor(Math.random() * 3) + 5; }
-  function uid(name)     { return '_' + Math.random().toString(36).slice(2, 8) + '_' + name; }
 
   function saveState(state) {
     try { localStorage.setItem(CLAIM_STORE_KEY, JSON.stringify({ ...state, _savedAt: Date.now() })); } catch (_) {}
@@ -82,15 +81,13 @@
     });
   }
 
-  // ─── Shadow DOM helpers ──────────────────────────────────────────────────────
+ 
 
-  /** Tạo hoặc lấy host element + shadow root để cô lập hoàn toàn khỏi CSS trang */
   function getOrCreateShadowHost(id) {
     let host = document.getElementById(id);
     if (!host) {
       host = document.createElement('div');
       host.id = id;
-      // Reset toàn bộ style kế thừa từ trang ngoài
       host.setAttribute('style', [
         'all:initial',
         'display:block',
@@ -103,7 +100,6 @@
     }
     if (!host._shadow) {
       host._shadow = host.attachShadow({ mode: 'open' });
-      // Inject base CSS vào shadow root — hoàn toàn độc lập với trang ngoài
       const style = document.createElement('style');
       style.textContent = `
         *, *::before, *::after {
@@ -155,7 +151,6 @@
     return host._shadow;
   }
 
-  /** Tạo popup cố định góc phải — cũng dùng Shadow DOM riêng */
   function createPopup() {
     let host = document.getElementById('_mkm_popup_host');
     if (!host) {
@@ -254,30 +249,26 @@
         }
         .copy-btn:hover { background: #4a7a28; }
         .msg-text {
-          font-size: 12px;
-          color: #555;
+          font-size: 13px;
+          color: #2c3e2f;
           line-height: 1.6;
+          background: #fff8e1;
+          padding: 8px;
+          border-radius: 12px;
+          font-weight: 500;
+        }
+        .msg-text strong {
+          font-weight: 800;
+          color: #d84315;
+          background: #ffecb3;
+          display: inline-block;
+          padding: 2px 6px;
+          border-radius: 20px;
         }
         .error-text {
           font-size: 13px;
           color: #c62828;
-          margin-bottom: 10px;
         }
-        .retry-btn {
-          width: 100%;
-          padding: 6px 0;
-          background: #e53935;
-          color: #fff;
-          border: none;
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 700;
-          cursor: pointer;
-          -webkit-appearance: none;
-          appearance: none;
-          outline: none;
-        }
-        .retry-btn:hover { background: #c62828; }
       `;
       host._shadow.appendChild(style);
       const popupEl = document.createElement('div');
@@ -318,7 +309,7 @@
     } catch (_) {}
   }
 
-  // ─── Render helpers (viết thẳng vào shadow DOM) ─────────────────────────────
+  
 
   function renderCountdown(popupHost, secs, scrollPct, paused) {
     const p = getPopupEl(popupHost);
@@ -344,27 +335,26 @@
     if (btn) btn.addEventListener('click', () => copyText(code, btn));
   }
 
+  
   function renderMsg(popupHost, text) {
     const p = getPopupEl(popupHost);
-    p.innerHTML = `<div class="msg-text">${text}</div>`;
+    let formatted = text
+      .replace(/(Bước\s+\d+)/g, '<strong>$1</strong>')
+      .replace(/(hoàn thành!)/g, '<strong>$1</strong>')
+      .replace(/(nhấp vào nút)/g, '<strong>$1</strong>');
+    p.innerHTML = `<div class="msg-text">${formatted}</div>`;
   }
 
-  function renderError(popupHost, text, onRetry) {
+  function renderError(popupHost, text) {
     const p = getPopupEl(popupHost);
-    p.innerHTML = `
-      <div class="error-text">⚠️ ${text}</div>
-      <button class="retry-btn">Thử lại</button>
-    `;
-    const btn = p.querySelector('.retry-btn');
-    if (btn) btn.addEventListener('click', onRetry);
+    p.innerHTML = `<div class="error-text">⚠️ ${text}</div>`;
   }
 
-  // ─── Widget button (trong shadow DOM) ────────────────────────────────────────
+  
 
   function createWidget() {
     const shadow = getOrCreateShadowHost('ma_km_2026_vip');
 
-    // Xoá nội dung cũ (nếu có) nhưng giữ lại <style>
     Array.from(shadow.children).forEach(el => {
       if (el.tagName !== 'STYLE') el.remove();
     });
@@ -379,22 +369,22 @@
     btn.setAttribute('aria-label', 'Nhấn để nhận mã khuyến mãi');
 
     const img = document.createElement('img');
-    img.src     = LOGO_URL;
-    img.alt     = 'Xác minh nhận mã';
-    img.loading = 'lazy';
+    img.src      = LOGO_URL;
+    img.alt      = 'Xác minh nhận mã';
+    img.loading  = 'lazy';
     img.decoding = 'async';
-    img.width   = 90;
-    img.height  = 80;
-    img.onerror = () => { img.style.display = 'none'; };
+    img.width    = 90;
+    img.height   = 80;
+    img.onerror  = () => { img.style.display = 'none'; };
 
     btn.appendChild(img);
     wrap.appendChild(btn);
     shadow.appendChild(wrap);
 
-    return { btn };
+    return { btn, shadow };
   }
 
-  // ─── Countdown + scroll ───────────────────────────────────────────────────────
+  
 
   async function countdownWithScroll(popupHost, totalSeconds) {
     return new Promise((resolve) => {
@@ -442,7 +432,7 @@
     });
   }
 
-  // ─── Referrer check ──────────────────────────────────────────────────────────
+  
 
   function checkReferrer(popupHost, activeType, activeSocialUrl) {
     const ref = document.referrer || '';
@@ -467,116 +457,143 @@
     return true;
   }
 
-  // ─── Flow logic ───────────────────────────────────────────────────────────────
+  
+  function showBtnAgain(shadow, btn, delayMs = 0) {
+    if (delayMs > 0) {
+      setTimeout(() => { btn.style.display = ''; }, delayMs);
+    } else {
+      btn.style.display = '';
+    }
+  }
 
-  async function runSimpleFlow(popupHost, planConfig, hostname, activeType, activeSocialUrl) {
-    if (!checkReferrer(popupHost, activeType, activeSocialUrl)) return;
+  
 
+  async function runSimpleFlow(popupHost, planConfig, hostname, activeType, activeSocialUrl, shadow, btn) {
+    const step1Time = planConfig.countdown_times[0] + randomExtra();
+
+    
     const result = await apiCall('create', {
       data: { hostname, domain: window.location.origin, plan: planConfig.plan, max_steps: 1, referrer: document.referrer || '' },
     });
-    if (!result) { renderMsg(popupHost, 'Không thể tạo phiên. Vui lòng thử lại.'); return; }
 
-    const step1Time = planConfig.countdown_times[0] + randomExtra();
+    // Đếm giây sau khi đã tạo phiên
     await countdownWithScroll(popupHost, step1Time);
+
+    if (!checkReferrer(popupHost, activeType, activeSocialUrl)) {
+      showBtnAgain(shadow, btn);
+      return;
+    }
+
+    if (!result) {
+      renderError(popupHost, 'Không thể tạo phiên. Vui lòng thử lại.');
+      showBtnAgain(shadow, btn);
+      return;
+    }
 
     const finalData = await apiCall('finalize', { docId: result.docId, steps_completed: 1, duration_sec: step1Time });
     clearState();
     if (finalData && finalData.code) renderCode(popupHost, finalData.code);
-    else renderMsg(popupHost, 'Lỗi khi lấy mã. Vui lòng thử lại.');
+    else renderError(popupHost, 'Lỗi khi lấy mã. Vui lòng thử lại.');
+    showBtnAgain(shadow, btn);
   }
 
-  async function runMultiStepFlow(popupHost, planConfig, hostname, activeType, activeSocialUrl) {
-    if (!checkReferrer(popupHost, activeType, activeSocialUrl)) return;
-
+  async function runMultiStepFlow(popupHost, planConfig, hostname, activeType, activeSocialUrl, shadow, btn) {
     const paddedTimes = planConfig.countdown_times.map(t => t + randomExtra());
 
+    
     const result = await apiCall('create', {
       data: { hostname, domain: window.location.origin, plan: planConfig.plan, max_steps: planConfig.max_steps, referrer: document.referrer || '' },
     });
-    if (!result) { renderMsg(popupHost, 'Không thể tạo phiên. Vui lòng thử lại.'); return; }
 
+    // Đếm giây bước 1 sau khi đã tạo phiên
     await countdownWithScroll(popupHost, paddedTimes[0]);
+
+    if (!checkReferrer(popupHost, activeType, activeSocialUrl)) {
+      showBtnAgain(shadow, btn);
+      return;
+    }
+
+    if (!result) {
+      renderError(popupHost, 'Không thể tạo phiên. Vui lòng thử lại.');
+      showBtnAgain(shadow, btn);
+      return;
+    }
+
     await apiCall('update_step', { docId: result.docId, steps_completed: 1 });
 
     saveState({
-      docId: result.docId, plan: planConfig.plan, max_steps: planConfig.max_steps,
-      countdown_times: paddedTimes, steps_completed: 1,
-      hostname, origin_path: location.pathname, page_visited: false,
+      docId:           result.docId,
+      plan:            planConfig.plan,
+      max_steps:       planConfig.max_steps,
+      countdown_times: paddedTimes,
+      steps_completed: 1,
+      hostname,
     });
-    renderMsg(popupHost, 'Bước 1 hoàn thành! Hãy nhấp vào một liên kết bất kỳ trên trang để tiếp tục.');
+
+    
+    renderMsg(popupHost, 'Bước 1 hoàn thành! Hãy nhấp vào nút ở trang khác để tiếp tục Bước 2.');
+    showBtnAgain(shadow, btn, 1500);
   }
 
-  async function resumeMultiStep(state, popupHost) {
-    if (location.pathname !== state.origin_path || state.page_visited) {
-      for (let i = state.steps_completed; i < state.max_steps; i++) {
-        await countdownWithScroll(popupHost, state.countdown_times[i]);
+  async function resumeFromStep(state, popupHost, shadow, btn) {
+    if (!state) { renderError(popupHost, 'Phiên đã hết hạn. Vui lòng thử lại.'); showBtnAgain(shadow, btn); return; }
+
+    for (let i = state.steps_completed; i < state.max_steps; i++) {
+      await countdownWithScroll(popupHost, state.countdown_times[i]);
+      if (i < state.max_steps - 1) {
         await apiCall('update_step', { docId: state.docId, steps_completed: i + 1 });
-      }
-      const finalData = await apiCall('finalize', {
-        docId:           state.docId,
-        steps_completed: state.max_steps,
-        duration_sec:    state.countdown_times.reduce((a, b) => a + b, 0),
-      });
-      clearState();
-      if (finalData && finalData.code) renderCode(popupHost, finalData.code);
-      else renderMsg(popupHost, 'Lỗi khi lấy mã. Vui lòng thử lại.');
-    } else {
-      renderMsg(popupHost, 'Hãy nhấp vào một liên kết khác trên trang để tiếp tục.');
-      const markVisited = () => {
         const fresh = loadState();
-        if (fresh && !fresh.page_visited) saveState({ ...fresh, page_visited: true });
-      };
-      window.addEventListener('beforeunload', markVisited);
-      const timer = setInterval(() => {
-        if (location.pathname !== state.origin_path) {
-          clearInterval(timer);
-          window.removeEventListener('beforeunload', markVisited);
-          resumeMultiStep(state, popupHost);
-        }
-      }, 500);
+        if (fresh) saveState({ ...fresh, steps_completed: i + 1 });
+        renderMsg(popupHost, `Bước ${i+1} hoàn thành! Hãy nhấp vào nút ở trang khác để tiếp tục Bước ${i+2}.`);
+        showBtnAgain(shadow, btn, 1500);
+        return;
+      }
     }
+
+    
+    const totalDuration = state.countdown_times.reduce((a, b) => a + b, 0);
+    const finalData = await apiCall('finalize', {
+      docId:           state.docId,
+      steps_completed: state.max_steps,
+      duration_sec:    totalDuration,
+    });
+    clearState();
+    if (finalData && finalData.code) renderCode(popupHost, finalData.code);
+    else renderError(popupHost, 'Lỗi khi lấy mã. Vui lòng thử lại.');
+    showBtnAgain(shadow, btn);
   }
 
-  // ─── Boot ─────────────────────────────────────────────────────────────────────
+  
 
   async function boot() {
     const hostname  = window.location.hostname;
     const popupHost = createPopup();
-    const { btn }   = createWidget();
-    let busy        = false;
-
-    const pending = loadState();
-    if (pending && pending.hostname === hostname && pending.steps_completed >= 1 && pending.steps_completed < pending.max_steps) {
-      busy = true;
-      // Ẩn button trong shadow DOM
-      const shadow = document.getElementById('ma_km_2026_vip')._shadow;
-      const btnEl  = shadow.querySelector('.btn');
-      if (btnEl) btnEl.style.display = 'none';
-      showPopup(popupHost);
-      resumeMultiStep(pending, popupHost);
-      return;
-    }
+    const { btn, shadow } = createWidget();
+    let busy = false;
 
     async function handleClick() {
       if (busy) return;
       busy = true;
 
+      btn.style.display = 'none';
       showPopup(popupHost);
-      renderMsg(popupHost, 'Đang tải cấu hình...');
 
-      const cfg = await apiCall('get_config', { hostname });
-
-      if (!cfg) {
-        renderError(popupHost, 'Không thể tải cấu hình. Kiểm tra kết nối và thử lại.', () => {
-          hidePopup(popupHost);
-          busy = false;
-        });
+      const pending = loadState();
+      if (pending && pending.hostname === hostname && pending.steps_completed >= 1 && pending.steps_completed < pending.max_steps) {
+        await resumeFromStep(pending, popupHost, shadow, btn);
+        busy = false;
         return;
       }
 
-      // Ẩn button trong shadow DOM
-      btn.style.display = 'none';
+      renderMsg(popupHost, 'Đang tải cấu hình...');
+      const cfg = await apiCall('get_config', { hostname });
+
+      if (!cfg) {
+        renderError(popupHost, 'Không thể tải cấu hình. Kiểm tra kết nối và thử lại.');
+        showBtnAgain(shadow, btn);
+        busy = false;
+        return;
+      }
 
       const activePlan      = cfg.plan           || '';
       const activeMaxSteps  = cfg.max_steps       || 1;
@@ -591,9 +608,9 @@
       };
 
       if (activeMaxSteps === 1) {
-        await runSimpleFlow(popupHost, planConfig, hostname, activeType, activeSocial);
+        await runSimpleFlow(popupHost, planConfig, hostname, activeType, activeSocial, shadow, btn);
       } else {
-        await runMultiStepFlow(popupHost, planConfig, hostname, activeType, activeSocial);
+        await runMultiStepFlow(popupHost, planConfig, hostname, activeType, activeSocial, shadow, btn);
       }
 
       busy = false;
